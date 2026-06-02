@@ -115,17 +115,18 @@ export default function ClassGapsPage() {
   }, [session, status, router]);
 
   const fetchGapInsights = async () => {
-    try {
-      const response = await fetch('/api/instructor/gap-insights');
-      const data = await response.json();
-      setInsights(data);
-    } catch (error) {
-      console.error('Failed to fetch gap insights:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  try {
+    // Change this line from '/api/instructor/gap-insights' to '/api/instructor/gaps'
+    const response = await fetch('/api/instructor/gaps');
+    const data = await response.json();
+    setInsights(data);
+  } catch (error) {
+    console.error('Failed to fetch gap insights:', error);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
   const handleRefresh = () => {
     setRefreshing(true);

@@ -9,7 +9,7 @@ import {
   Code, TrendingUp, Award, Clock, Users, BookOpen,
   Brain, Target, Zap, ChevronRight, Star, 
   Calendar, Flame, BarChart3, MessageSquare,
-  Sparkles, Loader2, Send, RefreshCw, Menu, X,
+  Sparkles, Loader2, Send, RefreshCw, Menu, X,  // ← Make sure Loader2 is here
   LogOut, Bell, User, GraduationCap, AlertTriangle,
   LayoutDashboard, FileText, Download, Filter, Plus
 } from 'lucide-react';
