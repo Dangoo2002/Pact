@@ -13,7 +13,6 @@ const handler = NextAuth({
         role: { label: 'Role', type: 'text' }
       },
       async authorize(credentials) {
-        // Get user from database
         const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
         const user = result.rows[0];
         
@@ -21,12 +20,10 @@ const handler = NextAuth({
           throw new Error('No account found with this email');
         }
         
-        // Verify password
         if (!bcrypt.compareSync(credentials.password, user.password_hash)) {
           throw new Error('Incorrect password');
         }
         
-        // Verify role matches the selected role
         if (user.role !== credentials.role) {
           throw new Error(`This account is registered as a ${user.role}. Please select the correct role.`);
         }
@@ -62,8 +59,22 @@ const handler = NextAuth({
   },
   session: {
     strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+        domain: process.env.NEXTAUTH_URL === 'http://localhost:3000' ? undefined : '.vercel.app',
+      },
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 });
 
 export { handler as GET, handler as POST };
