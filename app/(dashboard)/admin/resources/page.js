@@ -144,7 +144,7 @@ const ResourceCard = ({ resource, onEdit, onDelete }) => {
             <Edit size={14} className="text-blue-400" />
           </button>
           <button onClick={() => onDelete(resource.resource_id)} className="p-1 hover:bg-white/10 rounded transition">
-            <Trash2 size{14} className="text-red-400" />
+           <Trash2 size={14} className="text-red-400" />
           </button>
         </div>
       </div>
