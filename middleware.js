@@ -6,23 +6,33 @@ export default withAuth(
     const token = req.nextauth.token;
     const path = req.nextUrl.pathname;
     
-    // Redirect authenticated users away from auth pages
-    if (token && (path === '/login' || path === '/signup')) {
-      const role = token.role;
-      if (role === 'student') return NextResponse.redirect(new URL('/student', req.url));
-      if (role === 'instructor') return NextResponse.redirect(new URL('/instructor', req.url));
-      if (role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
-      return NextResponse.redirect(new URL('/', req.url));
+    // Allow public paths
+    const publicPaths = ['/', '/login', '/signup', '/api/auth'];
+    if (publicPaths.includes(path) || path.startsWith('/api/auth')) {
+      return NextResponse.next();
+    }
+    
+    // Redirect to login if no token
+    if (!token) {
+      const loginUrl = new URL('/login', req.url);
+      return NextResponse.redirect(loginUrl);
+    }
+    
+    // Role-based redirects
+    if (path === '/') {
+      if (token.role === 'student') return NextResponse.redirect(new URL('/student', req.url));
+      if (token.role === 'instructor') return NextResponse.redirect(new URL('/instructor', req.url));
+      if (token.role === 'admin') return NextResponse.redirect(new URL('/admin', req.url));
     }
     
     // Role-based protection
-    if (path.startsWith('/student') && token?.role !== 'student') {
+    if (path.startsWith('/student') && token.role !== 'student') {
       return NextResponse.redirect(new URL('/login', req.url));
     }
-    if (path.startsWith('/instructor') && token?.role !== 'instructor') {
+    if (path.startsWith('/instructor') && token.role !== 'instructor') {
       return NextResponse.redirect(new URL('/login', req.url));
     }
-    if (path.startsWith('/admin') && token?.role !== 'admin') {
+    if (path.startsWith('/admin') && token.role !== 'admin') {
       return NextResponse.redirect(new URL('/login', req.url));
     }
     
@@ -32,7 +42,6 @@ export default withAuth(
     callbacks: {
       authorized: ({ token }) => {
         // Allow access to public routes without token
-        const publicPaths = ['/', '/login', '/signup', '/api/auth'];
         return true;
       },
     },
@@ -41,6 +50,7 @@ export default withAuth(
 
 export const config = {
   matcher: [
+    '/',
     '/student/:path*',
     '/instructor/:path*',
     '/admin/:path*',
