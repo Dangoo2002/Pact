@@ -13,27 +13,33 @@ const handler = NextAuth({
         role: { label: 'Role', type: 'text' }
       },
       async authorize(credentials) {
-        const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
-        const user = result.rows[0];
-        
-        if (!user) {
-          throw new Error('No account found with this email');
+        try {
+          const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
+          const user = result.rows[0];
+          
+          if (!user) {
+            throw new Error('No account found with this email');
+          }
+          
+          const isValid = await bcrypt.compare(credentials.password, user.password_hash);
+          if (!isValid) {
+            throw new Error('Incorrect password');
+          }
+          
+          if (user.role !== credentials.role) {
+            throw new Error(`This account is registered as a ${user.role}. Please select the correct role.`);
+          }
+          
+          return {
+            id: user.user_id,
+            email: user.email,
+            name: user.full_name,
+            role: user.role
+          };
+        } catch (error) {
+          console.error('Authorization error:', error);
+          throw error;
         }
-        
-        if (!bcrypt.compareSync(credentials.password, user.password_hash)) {
-          throw new Error('Incorrect password');
-        }
-        
-        if (user.role !== credentials.role) {
-          throw new Error(`This account is registered as a ${user.role}. Please select the correct role.`);
-        }
-        
-        return {
-          id: user.user_id,
-          email: user.email,
-          name: user.full_name,
-          role: user.role
-        };
       }
     })
   ],
@@ -47,9 +53,11 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      session.user.role = token.role;
-      session.user.id = token.id;
-      session.user.name = token.name;
+      if (session?.user) {
+        session.user.role = token.role;
+        session.user.id = token.id;
+        session.user.name = token.name;
+      }
       return session;
     }
   },
@@ -61,20 +69,12 @@ const handler = NextAuth({
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  cookies: {
-    sessionToken: {
-      name: `__Secure-next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: true,
-        domain: process.env.NEXTAUTH_URL === 'http://localhost:3000' ? undefined : '.vercel.app',
-      },
-    },
-  },
+  // REMOVE the entire cookies section - this is causing the decryption error
+  // NextAuth will handle cookies automatically based on NEXTAUTH_URL
   secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  // Add these for better production reliability
+  useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://'),
 });
 
 export { handler as GET, handler as POST };
