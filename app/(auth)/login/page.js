@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Code, Mail, Lock, ArrowRight, Briefcase, GraduationCap, Shield, Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
-
+// Toast notification component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -85,6 +85,7 @@ const StarBackground = () => {
 };
 
 export default function LoginPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -92,6 +93,20 @@ export default function LoginPage() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState('student');
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      const userRole = session.user?.role;
+      if (userRole === 'student') {
+        router.push('/student');
+      } else if (userRole === 'instructor') {
+        router.push('/instructor');
+      } else if (userRole === 'admin') {
+        router.push('/admin');
+      }
+    }
+  }, [session, status, router]);
 
   const showToast = (message, type) => {
     setToast({ message, type });
@@ -119,16 +134,17 @@ export default function LoginPage() {
     } else {
       showToast(`Welcome back! Redirecting to ${role} dashboard...`, 'success');
       
-      // Wait for session to be established
+      // Short delay then redirect
       setTimeout(() => {
         if (role === 'student') {
-          window.location.href = '/student';
+          router.push('/student');
         } else if (role === 'instructor') {
-          window.location.href = '/instructor';
+          router.push('/instructor');
         } else if (role === 'admin') {
-          window.location.href = '/admin';
+          router.push('/admin');
         }
-      }, 1000);
+        router.refresh();
+      }, 500);
     }
   };
 

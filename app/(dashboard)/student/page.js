@@ -9,7 +9,8 @@ import {
   Brain, Target, Zap, ChevronRight, Star, 
   Calendar, Flame, BarChart3, MessageSquare,
   Sparkles, Loader2, Send, RefreshCw, Menu, X,
-  LogOut, Bell, User, GraduationCap
+  LogOut, Bell, User, GraduationCap,
+  LayoutDashboard, BookOpen
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -77,9 +78,9 @@ const Sidebar = ({ isOpen, onClose }) => {
   };
 
   const navItems = [
-    { href: '/student', label: 'Dashboard', icon: LayoutDashboardIcon },
+    { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/student/gaps', label: 'Knowledge Gaps', icon: Target },
-    { href: '/student/quizzes', label: 'Quizzes', icon: QuizIcon },
+    { href: '/student/quizzes', label: 'Quizzes', icon: BookOpen },
     { href: '/student/recommendations', label: 'Recommendations', icon: Sparkles },
     { href: '/student/profile', label: 'Profile', icon: User },
   ];
@@ -599,6 +600,3 @@ export default function StudentDashboard() {
     </div>
   );
 }
-
-// Additional icon imports for sidebar
-import { LayoutDashboard as LayoutDashboardIcon, BookOpen as QuizIcon } from 'lucide-react';
