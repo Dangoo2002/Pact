@@ -85,19 +85,23 @@ export async function GET() {
       });
     });
 
+    // Return the response with proper structure
     return NextResponse.json({
       stats: {
-        totalUsers,
-        totalResources,
-        totalQuestions,
-        totalResponses
+        totalUsers: totalUsers,
+        totalResources: totalResources,
+        totalQuestions: totalQuestions,
+        totalResponses: totalResponses
       },
-      userDistribution,
+      userDistribution: userDistribution,
       recentActivity: recentActivity.slice(0, 5)
     });
+    
   } catch (error) {
     console.error('Dashboard stats API error:', error);
-    return NextResponse.json({ 
+    
+    // Return fallback data on error
+    return NextResponse.json({
       stats: {
         totalUsers: 0,
         totalResources: 0,
@@ -109,11 +113,14 @@ export async function GET() {
         { name: 'Instructors', value: 0, color: '#8b5cf6' },
         { name: 'Admins', value: 0, color: '#10b981' }
       ],
-      recentActivity: []
+      recentActivity: [
+        { action: 'No recent activity', details: 'Check back later', time: 'just now', icon: 'system', color: 'gray' }
+      ]
     });
   }
 }
 
+// Helper function to format time ago
 function timeAgo(date) {
   const seconds = Math.floor((new Date() - date) / 1000);
   if (seconds < 60) return 'just now';

@@ -177,18 +177,45 @@ export default function AdminDashboard() {
   }, [session, status, router]);
 
   const fetchDashboardData = async () => {
-    try {
-      const response = await fetch('/api/admin/dashboard-stats');
-      const data = await response.json();
-      setStats(data.stats);
-      setUserDistribution(data.userDistribution);
-      setRecentActivity(data.recentActivity);
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
+  try {
+    const response = await fetch('/api/admin/dashboard-stats');
+    
+    // Check if response is ok
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    
+    const data = await response.json();
+    
+    // Safely set stats with fallbacks
+    setStats({
+      totalUsers: data.stats?.totalUsers ?? 0,
+      totalResources: data.stats?.totalResources ?? 0,
+      totalQuestions: data.stats?.totalQuestions ?? 0,
+      totalResponses: data.stats?.totalResponses ?? 0
+    });
+    
+    setUserDistribution(Array.isArray(data.userDistribution) ? data.userDistribution : []);
+    setRecentActivity(Array.isArray(data.recentActivity) ? data.recentActivity : []);
+  } catch (error) {
+    console.error('Failed to fetch dashboard data:', error);
+    // Set default values on error
+    setStats({
+      totalUsers: 0,
+      totalResources: 0,
+      totalQuestions: 0,
+      totalResponses: 0
+    });
+    setUserDistribution([
+      { name: 'Students', value: 0, color: '#3b82f6' },
+      { name: 'Instructors', value: 0, color: '#8b5cf6' },
+      { name: 'Admins', value: 0, color: '#10b981' }
+    ]);
+    setRecentActivity([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (status === 'loading' || loading) {
     return (
