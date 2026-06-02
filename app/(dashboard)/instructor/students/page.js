@@ -1,4 +1,4 @@
-// app/admin/page.js
+// app/instructor/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -6,15 +6,15 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  Code, Users, BookOpen, Server, Activity, Database, Shield,
+  Code, Users, BookOpen, TrendingUp, AlertCircle, CheckCircle,
   LayoutDashboard, Settings, FileText, Bell, User, Menu, X,
-  LogOut, TrendingUp, AlertCircle, CheckCircle, RefreshCw,
-  Loader2, ChevronRight, BarChart3, Clock, Zap
+  LogOut, Target, Loader2, ChevronRight, BarChart3, 
+  Brain, Award, Flame, Calendar, Download, Filter, Plus
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, LineChart, Line,
-  AreaChart, Area
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import { signOut } from 'next-auth/react';
 
@@ -69,10 +69,11 @@ const Sidebar = ({ isOpen, onClose }) => {
   };
 
   const navItems = [
-    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-    { href: '/admin/settings', label: 'Settings', icon: Settings },
+    { href: '/instructor', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/instructor/students', label: 'Students', icon: Users },
+    { href: '/instructor/gaps', label: 'Knowledge Gaps', icon: Target },
+    { href: '/instructor/assessments', label: 'Assessments', icon: FileText },
+    { href: '/instructor/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -81,12 +82,12 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="bg-green-500/20 p-2 rounded-xl">
-              <Code className="h-5 w-5 text-green-400" />
+            <div className="bg-purple-500/20 p-2 rounded-xl">
+              <Code className="h-5 w-5 text-purple-400" />
             </div>
             <span className="text-xl font-bold text-white">PACT</span>
           </div>
-          <p className="text-xs text-gray-500 mt-2">Admin Portal</p>
+          <p className="text-xs text-gray-500 mt-2">Instructor Portal</p>
         </div>
         
         <nav className="p-3 space-y-1">
@@ -108,11 +109,11 @@ const Sidebar = ({ isOpen, onClose }) => {
         
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-green-400" />
+            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+              <User className="h-4 w-4 text-purple-400" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Admin'}</p>
+              <p className="text-sm font-medium text-white">{session?.user?.name || 'Instructor'}</p>
               <p className="text-xs text-gray-500 capitalize">{role}</p>
             </div>
           </div>
@@ -126,17 +127,18 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 // Stat Card Component
-const StatCard = ({ title, value, icon: Icon, change, color = 'green' }) => {
+const StatCard = ({ title, value, icon: Icon, change, color = 'purple' }) => {
   const colorClasses = {
     blue: 'bg-blue-500/20 text-blue-400',
     green: 'bg-green-500/20 text-green-400',
     purple: 'bg-purple-500/20 text-purple-400',
     orange: 'bg-orange-500/20 text-orange-400',
-    red: 'bg-red-500/20 text-red-400'
+    red: 'bg-red-500/20 text-red-400',
+    yellow: 'bg-yellow-500/20 text-yellow-400'
   };
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4 hover:border-green-500/30 transition-all duration-300">
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4 hover:border-purple-500/30 transition-all duration-300">
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
           <Icon className="h-4 w-4 md:h-5 md:w-5" />
@@ -153,18 +155,43 @@ const StatCard = ({ title, value, icon: Icon, change, color = 'green' }) => {
   );
 };
 
-export default function AdminDashboard() {
+export default function InstructorDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState('week');
+  const [dashboardData, setDashboardData] = useState({
+    totalStudents: 0,
+    activeStudents: 0,
+    averageMastery: 0,
+    pendingReviews: 0,
+    classProgress: [],
+    performanceTrend: [],
+    conceptMastery: [],
+    recentActivity: [],
+    atRiskStudents: []
+  });
 
-  const stats = [
-    { title: 'Total Users', value: '156', icon: Users, change: '+12', color: 'blue' },
-    { title: 'Active Quizzes', value: '24', icon: BookOpen, change: '+3', color: 'green' },
-    { title: 'System Status', value: '99.9%', icon: Server, change: 'Operational', color: 'green' },
-    { title: 'API Calls (24h)', value: '2,847', icon: Activity, change: '+342', color: 'purple' },
-  ];
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+      return;
+    }
+    fetchDashboardData();
+  }, [session, status, router, selectedPeriod]);
+
+  const fetchDashboardData = async () => {
+    try {
+      const response = await fetch(`/api/instructor/dashboard-data?period=${selectedPeriod}`);
+      const data = await response.json();
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const apiUsageData = [
     { hour: '00:00', calls: 45 },
@@ -175,18 +202,17 @@ export default function AdminDashboard() {
     { hour: '20:00', calls: 178 },
   ];
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
-      return;
-    }
-    setTimeout(() => setLoading(false), 1000);
-  }, [session, status, router]);
+  const studentDistribution = [
+    { name: 'Excellent (90%+)', value: dashboardData.excellentCount || 8, color: '#10b981' },
+    { name: 'Good (70-89%)', value: dashboardData.goodCount || 18, color: '#8b5cf6' },
+    { name: 'Average (50-69%)', value: dashboardData.averageCount || 15, color: '#f59e0b' },
+    { name: 'At Risk (<50%)', value: dashboardData.atRiskStudents?.length || 7, color: '#ef4444' },
+  ];
 
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-green-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
       </div>
     );
   }
@@ -209,10 +235,10 @@ export default function AdminDashboard() {
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
               </button>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-green-400" />
+                <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-purple-400" />
                 </div>
-                <span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Admin'}</span>
+                <span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Instructor'}</span>
               </div>
             </div>
           </div>
@@ -220,53 +246,155 @@ export default function AdminDashboard() {
 
         <div className="p-4 md:p-6">
           <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">Admin Dashboard</h1>
-            <p className="text-sm text-gray-400 mt-1">System overview and management</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Instructor Dashboard</h1>
+            <p className="text-sm text-gray-400 mt-1">Monitor class progress and student performance</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-            {stats.map((stat, idx) => (
-              <StatCard key={idx} {...stat} />
+          {/* Period Selector */}
+          <div className="flex gap-2 mb-6">
+            {['week', 'month', 'semester'].map((period) => (
+              <button
+                key={period}
+                onClick={() => setSelectedPeriod(period)}
+                className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                  selectedPeriod === period
+                    ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400'
+                    : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+                }`}
+              >
+                {period.charAt(0).toUpperCase() + period.slice(1)}
+              </button>
             ))}
           </div>
 
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+            <StatCard title="Total Students" value={dashboardData.totalStudents} icon={Users} change="+8" color="blue" />
+            <StatCard title="Active Students" value={dashboardData.activeStudents} icon={Users} change="+5" color="green" />
+            <StatCard title="Average Mastery" value={`${dashboardData.averageMastery}%`} icon={Brain} change="+4%" color="purple" />
+            <StatCard title="Pending Reviews" value={dashboardData.pendingReviews} icon={FileText} change="3 new" color="orange" />
+          </div>
+
+          {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* System Health */}
+            {/* Class Performance by Concept */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5">
-              <h2 className="text-base md:text-lg font-semibold text-white mb-4">System Health</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                  <span className="text-sm text-gray-300">KGI API (Role 2)</span>
-                  <span className="text-green-400 flex items-center gap-1"><CheckCircle size={12} /> Operational</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                  <span className="text-sm text-gray-300">Recommendation API (Role 3)</span>
-                  <span className="text-green-400 flex items-center gap-1"><CheckCircle size={12} /> Operational</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                  <span className="text-sm text-gray-300">Assessment API (Role 1)</span>
-                  <span className="text-yellow-400 flex items-center gap-1"><AlertCircle size={12} /> Degraded</span>
-                </div>
-                <div className="flex justify-between items-center p-3 rounded-lg bg-white/5">
-                  <span className="text-sm text-gray-300">Database (Neon PostgreSQL)</span>
-                  <span className="text-green-400 flex items-center gap-1"><CheckCircle size={12} /> Operational</span>
-                </div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base md:text-lg font-semibold text-white">Class Performance by Concept</h2>
+                <Link href="/instructor/gaps" className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1">
+                  View Details <ChevronRight size={12} />
+                </Link>
+              </div>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.classProgress}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="concept" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} formatter={(value) => `${value}%`} />
+                    <Bar dataKey="mastery" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
-            {/* API Usage Chart */}
+            {/* Performance Trend */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5">
-              <h2 className="text-base md:text-lg font-semibold text-white mb-4">API Usage (Last 24 Hours)</h2>
+              <h2 className="text-base md:text-lg font-semibold text-white mb-4">Average Performance Trend</h2>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.performanceTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="week" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis domain={[50, 100]} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} formatter={(value) => `${value}%`} />
+                    <Line type="monotone" dataKey="avg" name="Class Average" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6', r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Student Distribution & At-Risk Students */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Student Distribution */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5">
+              <h2 className="text-base md:text-lg font-semibold text-white mb-4">Student Performance Distribution</h2>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={apiUsageData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="hour" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                  <PieChart>
+                    <Pie
+                      data={studentDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {studentDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
                     <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} />
-                    <Area type="monotone" dataKey="calls" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
-                  </AreaChart>
+                  </PieChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap justify-center gap-3 mt-4">
+                {studentDistribution.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-gray-400">{item.name.split(' ')[0]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* At-Risk Students */}
+            <div className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-xl p-4 md:p-5">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-base md:text-lg font-semibold text-red-400 flex items-center gap-2">
+                  <AlertCircle size={18} />
+                  Students Needing Attention
+                </h2>
+                <button className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1">
+                  <Download size={12} />
+                  Export
+                </button>
+              </div>
+              <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                {dashboardData.atRiskStudents?.length > 0 ? (
+                  dashboardData.atRiskStudents.map((student) => (
+                    <div key={student.id} className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-xl p-3 hover:border-red-500/40 transition-all duration-300">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                          <User className="h-4 w-4 text-red-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-sm text-white">{student.name}</h3>
+                          <p className="text-xs text-gray-500">Last active: {student.lastActive}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-red-400">{student.mastery}%</p>
+                          <p className="text-xs text-gray-500">Mastery</p>
+                        </div>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                        <div className="h-full bg-red-500 rounded-full" style={{ width: `${student.mastery}%` }} />
+                      </div>
+                      <button className="w-full text-xs px-2 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition">
+                        Send Message
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <CheckCircle size={40} className="mx-auto text-green-400 mb-2" />
+                    <p className="text-sm text-gray-400">No at-risk students at this time!</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -275,17 +403,13 @@ export default function AdminDashboard() {
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5 mb-6">
             <h2 className="text-base md:text-lg font-semibold text-white mb-4">Recent Activity</h2>
             <div className="space-y-3">
-              {[
-                { action: 'New user registration', details: 'alice@example.com joined as student', time: '2 hours ago', icon: Users, color: 'blue' },
-                { action: 'New quiz created', details: 'Advanced Python Quiz published', time: '5 hours ago', icon: BookOpen, color: 'purple' },
-                { action: 'System backup', details: 'Database backup completed successfully', time: '1 day ago', icon: Database, color: 'green' },
-              ].map((activity, idx) => {
-                const Icon = activity.icon;
-                const colorClasses = { blue: 'bg-blue-500/20 text-blue-400', purple: 'bg-purple-500/20 text-purple-400', green: 'bg-green-500/20 text-green-400' };
-                return (
+              {dashboardData.recentActivity?.length > 0 ? (
+                dashboardData.recentActivity.map((activity, idx) => (
                   <div key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition">
-                    <div className={`p-2 rounded-lg ${colorClasses[activity.color]}`}>
-                      <Icon size={14} />
+                    <div className={`p-2 rounded-lg bg-${activity.color}-500/20`}>
+                      {activity.type === 'quiz' && <FileText size={14} className={`text-${activity.color}-400`} />}
+                      {activity.type === 'student' && <Users size={14} className={`text-${activity.color}-400`} />}
+                      {activity.type === 'assessment' && <BookOpen size={14} className={`text-${activity.color}-400`} />}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">{activity.action}</p>
@@ -293,31 +417,70 @@ export default function AdminDashboard() {
                     </div>
                     <p className="text-xs text-gray-500">{activity.time}</p>
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-400">No recent activity to display.</p>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5">
-            <h2 className="text-base md:text-lg font-semibold text-white mb-4">Quick Actions</h2>
-            <div className="flex flex-wrap gap-3">
-              <button className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm">
-                Manage Users
-              </button>
-              <button className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-                Manage Resources
-              </button>
-              <button className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-                View Logs
-              </button>
-              <button className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-                Run Backup
-              </button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-purple-500/30 transition-all duration-300 cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white text-sm">Create Assessment</h3>
+                  <p className="text-xs text-gray-500 mt-1">Design new quizzes and tests</p>
+                </div>
+                <button className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-xs">
+                  Create
+                </button>
+              </div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-purple-500/30 transition-all duration-300 cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white text-sm">Review Submissions</h3>
+                  <p className="text-xs text-gray-500 mt-1">{dashboardData.pendingReviews} pending reviews</p>
+                </div>
+                <button className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition text-xs">
+                  Review
+                </button>
+              </div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-purple-500/30 transition-all duration-300 cursor-pointer">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-white text-sm">Generate Report</h3>
+                  <p className="text-xs text-gray-500 mt-1">Export class performance data</p>
+                </div>
+                <button className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition text-xs">
+                  Generate
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(139, 92, 246, 0.5);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(139, 92, 246, 0.8);
+        }
+      `}</style>
     </div>
   );
 }
