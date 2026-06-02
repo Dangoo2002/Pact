@@ -2,14 +2,21 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import bcrypt from 'bcryptjs';
 
-// GET - Fetch all users
-export async function GET() {
+export async function GET(request) {
   try {
-    const session = await getServerSession();
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      console.log('No session found');
+      return NextResponse.json({ error: 'Unauthorized - No session' }, { status: 401 });
+    }
+    
+    if (session.user.role !== 'admin') {
+      console.log('User role:', session.user.role, 'Expected: admin');
+      return NextResponse.json({ error: 'Unauthorized - Admin only' }, { status: 401 });
     }
 
     const result = await query(`
@@ -18,8 +25,7 @@ export async function GET() {
         email,
         full_name,
         role,
-        created_at,
-        updated_at
+        created_at
       FROM users 
       ORDER BY created_at DESC
     `);
@@ -27,14 +33,14 @@ export async function GET() {
     return NextResponse.json({ users: result.rows });
   } catch (error) {
     console.error('Failed to fetch users:', error);
-    return NextResponse.json({ users: [] });
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
 
-// POST - Create a new user
 export async function POST(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -65,10 +71,10 @@ export async function POST(request) {
   }
 }
 
-// PUT - Update a user
 export async function PUT(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -99,10 +105,10 @@ export async function PUT(request) {
   }
 }
 
-// DELETE - Delete a user
 export async function DELETE(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -114,7 +120,6 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Don't allow deleting your own account
     if (parseInt(userId) === session.user.id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
