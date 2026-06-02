@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Code, Mail, Lock, ArrowRight, Briefcase, GraduationCap, Shield, Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
-// Toast notification component
+
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -28,9 +28,11 @@ const Toast = ({ message, type, onClose }) => {
   };
 
   return (
-    <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl backdrop-blur-md border ${bgColors[type]} animate-in slide-in-from-top-5 duration-300`}>
-      {icons[type]}
-      <p className="text-sm text-white">{message}</p>
+    <div className={`fixed top-16 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none`}>
+      <div className={`pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 rounded-xl backdrop-blur-md border ${bgColors[type]} animate-in slide-in-from-top-5 duration-300 max-w-[90%] sm:max-w-md`}>
+        {icons[type]}
+        <p className="text-xs sm:text-sm text-white">{message}</p>
+      </div>
     </div>
   );
 };
@@ -116,11 +118,17 @@ export default function LoginPage() {
       setLoading(false);
     } else {
       showToast(`Welcome back! Redirecting to ${role} dashboard...`, 'success');
+      
+      // Wait for session to be established
       setTimeout(() => {
-        if (role === 'student') router.push('/student');
-        else if (role === 'instructor') router.push('/instructor');
-        else if (role === 'admin') router.push('/admin');
-      }, 1500);
+        if (role === 'student') {
+          window.location.href = '/student';
+        } else if (role === 'instructor') {
+          window.location.href = '/instructor';
+        } else if (role === 'admin') {
+          window.location.href = '/admin';
+        }
+      }, 1000);
     }
   };
 
@@ -140,7 +148,7 @@ export default function LoginPage() {
       
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-sm md:max-w-md lg:max-w-lg">
-          {/* Logo - Smaller on mobile */}
+          {/* Logo */}
           <div className="text-center mb-6 md:mb-8">
             <div className="inline-flex items-center justify-center p-2 md:p-3 rounded-2xl bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 mb-3 md:mb-4">
               <Code className="h-6 w-6 md:h-8 md:w-8 text-blue-400" />
@@ -149,7 +157,7 @@ export default function LoginPage() {
             <p className="text-xs md:text-sm text-gray-400 mt-1">Personalized Adaptive Coding Tutor</p>
           </div>
 
-          {/* Login Card - More compact */}
+          {/* Login Card */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl md:rounded-2xl p-5 md:p-6">
             <div className="text-center mb-4 md:mb-5">
               <div className={`inline-flex p-2 md:p-3 rounded-full bg-${currentRole.color}-500/20 mb-2 md:mb-3`}>
@@ -159,7 +167,7 @@ export default function LoginPage() {
               <p className="text-xs md:text-sm text-gray-400">Sign in to continue your learning journey</p>
             </div>
 
-            {/* Role Selector - Smaller on mobile */}
+            {/* Role Selector */}
             <div className="flex gap-2 mb-5 md:mb-6">
               {Object.entries(roleLabels).map(([key, { text, color }]) => (
                 <button
