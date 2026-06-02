@@ -9,21 +9,34 @@ const handler = NextAuth({
       name: 'Credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        password: { label: 'Password', type: 'password' },
+        role: { label: 'Role', type: 'text' }
       },
       async authorize(credentials) {
+        // Get user from database
         const result = await query('SELECT * FROM users WHERE email = $1', [credentials.email]);
         const user = result.rows[0];
         
-        if (user && bcrypt.compareSync(credentials.password, user.password_hash)) {
-          return {
-            id: user.user_id,
-            email: user.email,
-            name: user.full_name,
-            role: user.role
-          };
+        if (!user) {
+          throw new Error('No account found with this email');
         }
-        return null;
+        
+        // Verify password
+        if (!bcrypt.compareSync(credentials.password, user.password_hash)) {
+          throw new Error('Incorrect password');
+        }
+        
+        // Verify role matches the selected role
+        if (user.role !== credentials.role) {
+          throw new Error(`This account is registered as a ${user.role}. Please select the correct role.`);
+        }
+        
+        return {
+          id: user.user_id,
+          email: user.email,
+          name: user.full_name,
+          role: user.role
+        };
       }
     })
   ],
@@ -32,12 +45,14 @@ const handler = NextAuth({
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.name = user.name;
       }
       return token;
     },
     async session({ session, token }) {
       session.user.role = token.role;
       session.user.id = token.id;
+      session.user.name = token.name;
       return session;
     }
   },

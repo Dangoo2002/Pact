@@ -28,7 +28,7 @@ const Toast = ({ message, type, onClose }) => {
   };
 
   return (
-    <div className={`fixed top-16 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none`}>
+    <div className="fixed top-16 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
       <div className={`pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 rounded-xl backdrop-blur-md border ${bgColors[type]} animate-in slide-in-from-top-5 duration-300 max-w-[90%] sm:max-w-md`}>
         {icons[type]}
         <p className="text-xs sm:text-sm text-white">{message}</p>
@@ -125,25 +125,24 @@ export default function LoginPage() {
     const result = await signIn('credentials', {
       email,
       password,
+      role: role,
       redirect: false,
     });
 
     if (result?.error) {
-      showToast('Invalid email or password. Please try again.', 'error');
+      showToast(result.error, 'error');
       setLoading(false);
     } else {
       showToast(`Welcome back! Redirecting to ${role} dashboard...`, 'success');
       
-      // Short delay then redirect
       setTimeout(() => {
         if (role === 'student') {
-          router.push('/student');
+          window.location.href = '/student';
         } else if (role === 'instructor') {
-          router.push('/instructor');
+          window.location.href = '/instructor';
         } else if (role === 'admin') {
-          router.push('/admin');
+          window.location.href = '/admin';
         }
-        router.refresh();
       }, 500);
     }
   };
