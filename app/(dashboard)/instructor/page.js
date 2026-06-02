@@ -1,4 +1,4 @@
-// app/instructor/page.js
+// app/(dashboard)/instructor/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -9,7 +9,7 @@ import {
   Code, TrendingUp, Award, Clock, Users, BookOpen,
   Brain, Target, Zap, ChevronRight, Star, 
   Calendar, Flame, BarChart3, MessageSquare,
-  Sparkles, Loader2, Send, RefreshCw, Menu, X,  // ← Make sure Loader2 is here
+  Sparkles, Loader2, Send, RefreshCw, Menu, X,
   LogOut, Bell, User, GraduationCap, AlertTriangle,
   LayoutDashboard, FileText, Download, Filter, Plus
 } from 'lucide-react';
@@ -140,6 +140,36 @@ const StatCard = ({ title, value, icon: Icon, change, color = 'purple' }) => {
   );
 };
 
+// Default fallback data
+const defaultDistributionData = [
+  { name: 'Excellent (90%+)', value: 8, color: '#10b981' },
+  { name: 'Good (70-89%)', value: 18, color: '#8b5cf6' },
+  { name: 'Average (50-69%)', value: 15, color: '#f59e0b' },
+  { name: 'At Risk (<50%)', value: 7, color: '#ef4444' },
+];
+
+const defaultClassProgress = [
+  { concept: 'Variables', mastery: 85 },
+  { concept: 'Loops', mastery: 62 },
+  { concept: 'Functions', mastery: 58 },
+  { concept: 'Arrays', mastery: 70 },
+  { concept: 'OOP', mastery: 45 },
+];
+
+const defaultPerformanceTrend = [
+  { week: 'Week 1', avg: 65 },
+  { week: 'Week 2', avg: 68 },
+  { week: 'Week 3', avg: 71 },
+  { week: 'Week 4', avg: 74 },
+  { week: 'Week 5', avg: 76 },
+];
+
+const defaultAtRiskStudents = [
+  { id: 1, name: 'John Doe', mastery: 34, lastActive: '2 days ago' },
+  { id: 2, name: 'Jane Smith', mastery: 28, lastActive: '5 days ago' },
+  { id: 3, name: 'Mike Johnson', mastery: 41, lastActive: '1 day ago' },
+];
+
 export default function InstructorDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -151,10 +181,10 @@ export default function InstructorDashboard() {
     activeStudents: 0,
     averageMastery: 0,
     pendingAssignments: 0,
-    classProgress: [],
-    performanceTrend: [],
-    distributionData: [],
-    atRiskStudents: []
+    classProgress: defaultClassProgress,
+    performanceTrend: defaultPerformanceTrend,
+    distributionData: defaultDistributionData,
+    atRiskStudents: defaultAtRiskStudents
   });
 
   useEffect(() => {
@@ -169,9 +199,21 @@ export default function InstructorDashboard() {
     try {
       const response = await fetch(`/api/instructor/dashboard?period=${selectedPeriod}`);
       const data = await response.json();
-      setDashboardData(data);
+      
+      // Safely set data with fallbacks
+      setDashboardData({
+        totalStudents: data.totalStudents ?? 0,
+        activeStudents: data.activeStudents ?? 0,
+        averageMastery: data.averageMastery ?? 0,
+        pendingAssignments: data.pendingAssignments ?? 0,
+        classProgress: Array.isArray(data.classProgress) && data.classProgress.length > 0 ? data.classProgress : defaultClassProgress,
+        performanceTrend: Array.isArray(data.performanceTrend) && data.performanceTrend.length > 0 ? data.performanceTrend : defaultPerformanceTrend,
+        distributionData: Array.isArray(data.distributionData) && data.distributionData.length > 0 ? data.distributionData : defaultDistributionData,
+        atRiskStudents: Array.isArray(data.atRiskStudents) && data.atRiskStudents.length > 0 ? data.atRiskStudents : defaultAtRiskStudents
+      });
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      // Keep default data on error
     } finally {
       setLoading(false);
     }
@@ -216,10 +258,10 @@ export default function InstructorDashboard() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
-            <StatCard title="Total Students" value={dashboardData.totalStudents} icon={Users} change="+8" color="blue" />
-            <StatCard title="Active Students" value={dashboardData.activeStudents} icon={Users} change="+5" color="green" />
-            <StatCard title="Average Mastery" value={`${dashboardData.averageMastery}%`} icon={Brain} change="+4%" color="purple" />
-            <StatCard title="Pending Reviews" value={dashboardData.pendingAssignments} icon={FileText} change="3 new" color="orange" />
+            <StatCard title="Total Students" value={dashboardData.totalStudents} icon={Users} color="blue" />
+            <StatCard title="Active Students" value={dashboardData.activeStudents} icon={Users} color="green" />
+            <StatCard title="Average Mastery" value={`${dashboardData.averageMastery}%`} icon={Brain} color="purple" />
+            <StatCard title="Pending Reviews" value={dashboardData.pendingAssignments} icon={FileText} color="orange" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -270,6 +312,14 @@ export default function InstructorDashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+              <div className="flex flex-wrap justify-center gap-3 mt-4">
+                {dashboardData.distributionData.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-1">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-gray-400">{item.name.split(' ')[0]}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-xl p-4 md:p-5">
@@ -277,17 +327,21 @@ export default function InstructorDashboard() {
                 <h2 className="text-base md:text-lg font-semibold text-red-400 flex items-center gap-2"><AlertTriangle size={18} /> Students Needing Attention</h2>
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
-                {dashboardData.atRiskStudents.map((student) => (
-                  <div key={student.id} className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-xl p-3 hover:border-red-500/40 transition-all duration-300">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center"><User className="h-4 w-4 text-red-400" /></div>
-                      <div className="flex-1"><h3 className="font-semibold text-sm text-white">{student.name}</h3><p className="text-xs text-gray-500">Last active: {student.lastActive}</p></div>
-                      <div className="text-right"><p className="text-sm font-bold text-red-400">{student.mastery}%</p><p className="text-xs text-gray-500">Mastery</p></div>
+                {dashboardData.atRiskStudents.length > 0 ? (
+                  dashboardData.atRiskStudents.map((student) => (
+                    <div key={student.id} className="bg-white/5 backdrop-blur-sm border border-red-500/20 rounded-xl p-3 hover:border-red-500/40 transition-all duration-300">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center"><User className="h-4 w-4 text-red-400" /></div>
+                        <div className="flex-1"><h3 className="font-semibold text-sm text-white">{student.name}</h3><p className="text-xs text-gray-500">Last active: {student.lastActive}</p></div>
+                        <div className="text-right"><p className="text-sm font-bold text-red-400">{student.mastery}%</p><p className="text-xs text-gray-500">Mastery</p></div>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3"><div className="h-full bg-red-500 rounded-full" style={{ width: `${student.mastery}%` }} /></div>
+                      <button className="w-full text-xs px-2 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition">Send Message</button>
                     </div>
-                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3"><div className="h-full bg-red-500 rounded-full" style={{ width: `${student.mastery}%` }} /></div>
-                    <button className="w-full text-xs px-2 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition">Send Message</button>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">No at-risk students at this time</div>
+                )}
               </div>
             </div>
           </div>
