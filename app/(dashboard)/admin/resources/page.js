@@ -9,7 +9,8 @@ import {
   Code, BookOpen, Search, Plus, Video, FileText, 
   ExternalLink, Edit, Trash2, Menu, X, Bell, 
   LogOut, Loader2, LayoutDashboard, Users, Settings,
-  Star, StarHalf, Sparkles, Filter, XCircle, CheckCircle
+  Star, StarHalf, Sparkles, Filter, XCircle, CheckCircle,
+  User
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
