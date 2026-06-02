@@ -41,17 +41,17 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, resource_type, url, difficulty_level, quality_score, concept_ids, language_id } = body;
+    const { title, resource_type, url, difficulty_level, quality_score } = body;
 
     if (!title || !resource_type) {
       return NextResponse.json({ error: 'Title and resource type are required' }, { status: 400 });
     }
 
     const result = await query(
-      `INSERT INTO resources (title, resource_type, url, difficulty_level, quality_score, concept_ids, language_id, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
+      `INSERT INTO resources (title, resource_type, url, difficulty_level, quality_score, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) 
        RETURNING resource_id`,
-      [title, resource_type, url || null, difficulty_level || 3, quality_score || 0.7, concept_ids || [], language_id || null]
+      [title, resource_type, url || null, difficulty_level || 3, quality_score || 0.7]
     );
     
     return NextResponse.json({ 
@@ -81,21 +81,24 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { title, resource_type, url, difficulty_level, quality_score, concept_ids, language_id } = body;
+    const { title, resource_type, url, difficulty_level, quality_score } = body;
 
-    await query(
+    const result = await query(
       `UPDATE resources 
        SET title = $1, 
            resource_type = $2, 
            url = $3, 
            difficulty_level = $4, 
-           quality_score = $5, 
-           concept_ids = $6, 
-           language_id = $7,
+           quality_score = $5,
            updated_at = CURRENT_TIMESTAMP
-       WHERE resource_id = $8`,
-      [title, resource_type, url || null, difficulty_level || 3, quality_score || 0.7, concept_ids || [], language_id || null, resourceId]
+       WHERE resource_id = $6
+       RETURNING resource_id`,
+      [title, resource_type, url || null, difficulty_level || 3, quality_score || 0.7, resourceId]
     );
+    
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
+    }
     
     return NextResponse.json({ success: true, message: 'Resource updated successfully' });
   } catch (error) {
@@ -119,11 +122,15 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Resource ID is required' }, { status: 400 });
     }
 
-    // First delete related records in resource_engagement
+    // Delete related records first
     await query('DELETE FROM resource_engagement WHERE resource_id = $1', [resourceId]);
     
-    // Then delete the resource
-    await query('DELETE FROM resources WHERE resource_id = $1', [resourceId]);
+    // Delete the resource
+    const result = await query('DELETE FROM resources WHERE resource_id = $1 RETURNING resource_id', [resourceId]);
+    
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Resource not found' }, { status: 404 });
+    }
     
     return NextResponse.json({ success: true, message: 'Resource deleted successfully' });
   } catch (error) {
