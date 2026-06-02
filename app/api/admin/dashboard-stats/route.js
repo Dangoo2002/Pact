@@ -2,7 +2,7 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -12,7 +12,6 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all user counts
     const usersResult = await query(`
       SELECT 
         COUNT(*) as total,
@@ -22,31 +21,21 @@ export async function GET() {
       FROM users
     `);
     
-    // Get resources count
     const resourcesResult = await query('SELECT COUNT(*) as count FROM resources');
-    
-    // Get questions count
     const questionsResult = await query('SELECT COUNT(*) as count FROM questions');
-    
-    // Get responses count
     const responsesResult = await query('SELECT COUNT(*) as count FROM responses');
-    
-    const totalUsers = parseInt(usersResult.rows[0]?.total || 0);
-    const studentsCount = parseInt(usersResult.rows[0]?.students || 0);
-    const instructorsCount = parseInt(usersResult.rows[0]?.instructors || 0);
-    const adminsCount = parseInt(usersResult.rows[0]?.admins || 0);
 
     return NextResponse.json({
       stats: {
-        totalUsers: totalUsers,
+        totalUsers: parseInt(usersResult.rows[0]?.total || 0),
         totalResources: parseInt(resourcesResult.rows[0]?.count || 0),
         totalQuestions: parseInt(questionsResult.rows[0]?.count || 0),
         totalResponses: parseInt(responsesResult.rows[0]?.count || 0)
       },
       userDistribution: [
-        { name: 'Students', value: studentsCount, color: '#3b82f6' },
-        { name: 'Instructors', value: instructorsCount, color: '#8b5cf6' },
-        { name: 'Admins', value: adminsCount, color: '#10b981' }
+        { name: 'Students', value: parseInt(usersResult.rows[0]?.students || 0), color: '#3b82f6' },
+        { name: 'Instructors', value: parseInt(usersResult.rows[0]?.instructors || 0), color: '#8b5cf6' },
+        { name: 'Admins', value: parseInt(usersResult.rows[0]?.admins || 0), color: '#10b981' }
       ],
       recentActivity: []
     });

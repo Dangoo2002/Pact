@@ -2,21 +2,15 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session) {
-      console.log('No session found');
-      return NextResponse.json({ error: 'Unauthorized - No session' }, { status: 401 });
-    }
-    
-    if (session.user.role !== 'admin') {
-      console.log('User role:', session.user.role, 'Expected: admin');
-      return NextResponse.json({ error: 'Unauthorized - Admin only' }, { status: 401 });
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const result = await query(`
