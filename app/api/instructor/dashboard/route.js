@@ -2,10 +2,12 @@
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function GET(request) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
+    
     if (!session || session.user.role !== 'instructor') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,10 +15,10 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'week';
 
-    // Get total students count
-    const totalStudentsResult = await query(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'student'"
-    );
+    // Get total students count from users table
+    const totalStudentsResult = await query(`
+      SELECT COUNT(*) as count FROM users WHERE role = 'student'
+    `);
     const totalStudents = parseInt(totalStudentsResult.rows[0]?.count || 0);
 
     // Get active students (with responses in last 7 days)
@@ -101,10 +103,10 @@ export async function GET(request) {
     });
 
     const distributionData = [
-      { name: 'Excellent (90%+)', value: excellentCount || 8, color: '#10b981' },
-      { name: 'Good (70-89%)', value: goodCount || 18, color: '#8b5cf6' },
-      { name: 'Average (50-69%)', value: averageCount || 15, color: '#f59e0b' },
-      { name: 'At Risk (<50%)', value: atRiskCount || 7, color: '#ef4444' },
+      { name: 'Excellent (90%+)', value: excellentCount || 0, color: '#10b981' },
+      { name: 'Good (70-89%)', value: goodCount || 0, color: '#8b5cf6' },
+      { name: 'Average (50-69%)', value: averageCount || 0, color: '#f59e0b' },
+      { name: 'At Risk (<50%)', value: atRiskCount || 0, color: '#ef4444' },
     ];
 
     // Format class progress data
@@ -132,59 +134,27 @@ export async function GET(request) {
       activeStudents,
       averageMastery,
       pendingAssignments: 0,
-      classProgress: classProgress.length > 0 ? classProgress : [
-        { concept: 'Variables', mastery: 85 },
-        { concept: 'Loops', mastery: 62 },
-        { concept: 'Functions', mastery: 58 },
-        { concept: 'Arrays', mastery: 70 },
-        { concept: 'OOP', mastery: 45 },
-      ],
-      performanceTrend: performanceTrend.length > 0 ? performanceTrend : [
-        { week: 'Week 1', avg: 65 },
-        { week: 'Week 2', avg: 68 },
-        { week: 'Week 3', avg: 71 },
-        { week: 'Week 4', avg: 74 },
-        { week: 'Week 5', avg: 76 },
-      ],
+      classProgress: classProgress.length > 0 ? classProgress : [],
+      performanceTrend: performanceTrend.length > 0 ? performanceTrend : [],
       distributionData,
-      atRiskStudents: atRiskStudents.length > 0 ? atRiskStudents : [
-        { id: 1, name: 'John Doe', mastery: 34, lastActive: '2 days ago' },
-        { id: 2, name: 'Jane Smith', mastery: 28, lastActive: '5 days ago' },
-      ]
+      atRiskStudents
     });
   } catch (error) {
     console.error('Instructor Dashboard API error:', error);
-    // Return fallback data on error
     return NextResponse.json({
-      totalStudents: 48,
-      activeStudents: 42,
-      averageMastery: 72,
-      pendingAssignments: 8,
-      classProgress: [
-        { concept: 'Variables', mastery: 85 },
-        { concept: 'Loops', mastery: 62 },
-        { concept: 'Functions', mastery: 58 },
-        { concept: 'Arrays', mastery: 70 },
-        { concept: 'OOP', mastery: 45 },
-      ],
-      performanceTrend: [
-        { week: 'Week 1', avg: 65 },
-        { week: 'Week 2', avg: 68 },
-        { week: 'Week 3', avg: 71 },
-        { week: 'Week 4', avg: 74 },
-        { week: 'Week 5', avg: 76 },
-      ],
+      totalStudents: 0,
+      activeStudents: 0,
+      averageMastery: 0,
+      pendingAssignments: 0,
+      classProgress: [],
+      performanceTrend: [],
       distributionData: [
-        { name: 'Excellent (90%+)', value: 8, color: '#10b981' },
-        { name: 'Good (70-89%)', value: 18, color: '#8b5cf6' },
-        { name: 'Average (50-69%)', value: 15, color: '#f59e0b' },
-        { name: 'At Risk (<50%)', value: 7, color: '#ef4444' },
+        { name: 'Excellent (90%+)', value: 0, color: '#10b981' },
+        { name: 'Good (70-89%)', value: 0, color: '#8b5cf6' },
+        { name: 'Average (50-69%)', value: 0, color: '#f59e0b' },
+        { name: 'At Risk (<50%)', value: 0, color: '#ef4444' },
       ],
-      atRiskStudents: [
-        { id: 1, name: 'John Doe', mastery: 34, lastActive: '2 days ago' },
-        { id: 2, name: 'Jane Smith', mastery: 28, lastActive: '5 days ago' },
-        { id: 3, name: 'Mike Johnson', mastery: 41, lastActive: '1 day ago' },
-      ]
+      atRiskStudents: []
     });
   }
 }

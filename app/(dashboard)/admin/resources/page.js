@@ -190,7 +190,7 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-// MAIN COMPONENT - ONLY DEFAULT EXPORT
+// MAIN COMPONENT
 export default function AdminResourcesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -258,8 +258,16 @@ export default function AdminResourcesPage() {
       const response = await fetch('/api/admin/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          title: formData.title,
+          resource_type: formData.resource_type,
+          url: formData.url,
+          difficulty_level: formData.difficulty_level,
+          quality_score: formData.quality_score
+        })
       });
+      
+      const data = await response.json();
       
       if (response.ok) {
         showToast('Resource added successfully!', 'success');
@@ -267,7 +275,7 @@ export default function AdminResourcesPage() {
         resetForm();
         fetchResources();
       } else {
-        showToast('Failed to add resource', 'error');
+        showToast(data.error || 'Failed to add resource', 'error');
       }
     } catch (error) {
       console.error('Failed to add resource:', error);
@@ -281,11 +289,26 @@ export default function AdminResourcesPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      // Make sure we have the resource ID
+      if (!editingResource || !editingResource.resource_id) {
+        showToast('No resource selected for update', 'error');
+        setSubmitting(false);
+        return;
+      }
+      
       const response = await fetch(`/api/admin/resources?id=${editingResource.resource_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          title: formData.title,
+          resource_type: formData.resource_type,
+          url: formData.url,
+          difficulty_level: formData.difficulty_level,
+          quality_score: formData.quality_score
+        })
       });
+      
+      const data = await response.json();
       
       if (response.ok) {
         showToast('Resource updated successfully!', 'success');
@@ -293,7 +316,7 @@ export default function AdminResourcesPage() {
         resetForm();
         fetchResources();
       } else {
-        showToast('Failed to update resource', 'error');
+        showToast(data.error || 'Failed to update resource', 'error');
       }
     } catch (error) {
       console.error('Failed to update resource:', error);
@@ -304,7 +327,7 @@ export default function AdminResourcesPage() {
   };
 
   const handleDeleteResource = async (resourceId) => {
-    if (!confirm('Are you sure you want to delete this resource?')) return;
+    if (!confirm('Are you sure you want to delete this resource? This action cannot be undone.')) return;
     
     try {
       const response = await fetch(`/api/admin/resources?id=${resourceId}`, {
@@ -326,8 +349,8 @@ export default function AdminResourcesPage() {
   const openEditModal = (resource) => {
     setEditingResource(resource);
     setFormData({
-      title: resource.title,
-      resource_type: resource.resource_type,
+      title: resource.title || '',
+      resource_type: resource.resource_type || 'video',
       url: resource.url || '',
       difficulty_level: resource.difficulty_level || 3,
       quality_score: resource.quality_score || 0.7
@@ -366,16 +389,21 @@ export default function AdminResourcesPage() {
         </div>
 
         <div className="p-4 md:p-6">
+          {/* Header with Add Resource button - ALWAYS VISIBLE */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">Resource Library</h1>
               <p className="text-sm text-gray-400 mt-1">Manage learning resources</p>
             </div>
-            <button onClick={() => { resetForm(); setShowAddModal(true); }} className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition flex items-center gap-2 text-sm">
+            <button 
+              onClick={() => { resetForm(); setShowAddModal(true); }} 
+              className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition flex items-center gap-2 text-sm whitespace-nowrap"
+            >
               <Plus size={16} /> Add Resource
             </button>
           </div>
 
+          {/* Search and Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
               <div className="relative">
@@ -406,6 +434,7 @@ export default function AdminResourcesPage() {
             </div>
           </div>
 
+          {/* Resources Grid */}
           {filteredResources.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredResources.map((resource) => (
@@ -421,7 +450,10 @@ export default function AdminResourcesPage() {
             <div className="text-center py-12 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
               <BookOpen size={48} className="mx-auto text-gray-600 mb-4" />
               <p className="text-gray-500">No resources found.</p>
-              <button onClick={() => { resetForm(); setShowAddModal(true); }} className="mt-4 px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm">
+              <button 
+                onClick={() => { resetForm(); setShowAddModal(true); }} 
+                className="mt-4 px-4 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm"
+              >
                 Add your first resource
               </button>
             </div>
@@ -504,6 +536,12 @@ export default function AdminResourcesPage() {
                   onChange={(e) => setFormData({...formData, quality_score: parseFloat(e.target.value)})}
                   className="w-full"
                 />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Poor</span>
+                  <span>Average</span>
+                  <span>Good</span>
+                  <span>Excellent</span>
+                </div>
               </div>
               
               <div className="flex gap-3 pt-4">

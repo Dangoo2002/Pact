@@ -1,4 +1,4 @@
-// app/admin/settings/page.js
+// app/(dashboard)/admin/settings/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -76,44 +76,27 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="bg-green-500/20 p-2 rounded-xl">
-              <Code className="h-5 w-5 text-green-400" />
-            </div>
+            <div className="bg-green-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-green-400" /></div>
             <span className="text-xl font-bold text-white">PACT</span>
           </div>
           <p className="text-xs text-gray-500 mt-2">Admin Portal</p>
         </div>
-        
         <nav className="p-3 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
-              >
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
+              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <Icon size={18} /><span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
         </nav>
-        
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Admin'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center"><User className="h-4 w-4 text-green-400" /></div>
+            <div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Admin'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-            <LogOut size={16} /> Sign Out
-          </button>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} /> Sign Out</button>
         </div>
       </div>
     </>
@@ -129,6 +112,7 @@ const ToggleSwitch = ({ enabled, onChange, label, description }) => {
         {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
       </div>
       <button
+        type="button"
         onClick={onChange}
         className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
           enabled ? 'bg-green-500' : 'bg-gray-600'
@@ -203,30 +187,21 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const [settings, setSettings] = useState({
-    // General Settings
     siteName: 'PACT - Personalized Adaptive Coding Tutor',
     siteDescription: 'AI-powered personalized learning platform for programming education',
     adminEmail: 'admin@pact.com',
     defaultLanguage: 'python',
-    
-    // Security Settings
     enableRegistration: true,
     requireEmailVerification: false,
     maintenanceMode: false,
     apiRateLimit: 100,
     sessionTimeout: 60,
     maxLoginAttempts: 5,
-    
-    // Notification Settings
     emailNotifications: true,
     systemAlerts: true,
     weeklyReports: true,
-    
-    // Appearance Settings
     theme: 'dark',
     animationsEnabled: true,
-    
-    // API Settings
     deepseekApiKey: '',
     deepseekApiEndpoint: 'https://api.deepseek.com/v1',
   });
@@ -248,9 +223,14 @@ export default function AdminSettingsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
+      showToast('Failed to load settings', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ message, type });
   };
 
   const handleChange = (key, value) => {
@@ -266,13 +246,18 @@ export default function AdminSettingsPage() {
         body: JSON.stringify(settings)
       });
       
+      const data = await response.json();
+      
       if (response.ok) {
-        setToast({ message: 'Settings saved successfully!', type: 'success' });
+        showToast('Settings saved successfully!', 'success');
+        // Refresh settings to confirm they were saved
+        await fetchSettings();
       } else {
-        setToast({ message: 'Failed to save settings', type: 'error' });
+        showToast(data.error || 'Failed to save settings', 'error');
       }
     } catch (error) {
-      setToast({ message: 'Error saving settings', type: 'error' });
+      console.error('Error saving settings:', error);
+      showToast('Error saving settings', 'error');
     } finally {
       setSaving(false);
     }
@@ -294,7 +279,6 @@ export default function AdminSettingsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
       <div className="md:ml-64">
-        {/* Navbar */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
@@ -315,17 +299,13 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="p-4 md:p-6">
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-white">System Settings</h1>
             <p className="text-sm text-gray-400 mt-1">Configure system-wide settings and preferences</p>
           </div>
 
-          {/* Settings Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {/* General Settings */}
             <SettingsCard title="General Settings" icon={Globe} color="green">
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">Site Name</label>
@@ -372,7 +352,6 @@ export default function AdminSettingsPage() {
               </div>
             </SettingsCard>
 
-            {/* Security Settings */}
             <SettingsCard title="Security Settings" icon={Shield} color="blue">
               <ToggleSwitch
                 enabled={settings.enableRegistration}
@@ -421,7 +400,6 @@ export default function AdminSettingsPage() {
               </div>
             </SettingsCard>
 
-            {/* Notification Settings */}
             <SettingsCard title="Notification Settings" icon={Bell} color="purple">
               <ToggleSwitch
                 enabled={settings.emailNotifications}
@@ -443,7 +421,6 @@ export default function AdminSettingsPage() {
               />
             </SettingsCard>
 
-            {/* API Settings */}
             <SettingsCard title="API Settings" icon={Database} color="orange">
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">DeepSeek API Key</label>
@@ -467,7 +444,6 @@ export default function AdminSettingsPage() {
             </SettingsCard>
           </div>
 
-          {/* Save Button */}
           <div className="flex justify-end sticky bottom-4 z-20">
             <button
               onClick={handleSave}

@@ -1,10 +1,18 @@
 // app/api/admin/settings/route.js
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // GET: Fetch settings
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Check if settings table exists, create if not
     await query(`
       CREATE TABLE IF NOT EXISTS system_settings (
@@ -20,6 +28,7 @@ export async function GET() {
     const settings = {};
     result.rows.forEach(row => {
       try {
+        // Try to parse as JSON
         settings[row.setting_key] = JSON.parse(row.setting_value);
       } catch {
         settings[row.setting_key] = row.setting_value;
@@ -57,6 +66,12 @@ export async function GET() {
 // POST: Save settings
 export async function POST(request) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const settings = await request.json();
     
     // Ensure settings table exists
@@ -70,7 +85,14 @@ export async function POST(request) {
     
     // Save each setting
     for (const [key, value] of Object.entries(settings)) {
-      const settingValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      let settingValue;
+      if (typeof value === 'object') {
+        settingValue = JSON.stringify(value);
+      } else if (typeof value === 'boolean') {
+        settingValue = value ? 'true' : 'false';
+      } else {
+        settingValue = String(value);
+      }
       
       await query(`
         INSERT INTO system_settings (setting_key, setting_value, updated_at)
@@ -83,6 +105,6 @@ export async function POST(request) {
     return NextResponse.json({ success: true, message: 'Settings saved successfully' });
   } catch (error) {
     console.error('Failed to save settings:', error);
-    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to save settings: ' + error.message }, { status: 500 });
   }
 }
