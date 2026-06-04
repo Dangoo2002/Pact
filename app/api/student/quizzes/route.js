@@ -1,7 +1,6 @@
-// app/api/student/quizzes/route.js
-import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
+import { query } from '@/lib/db';
 
 export async function GET(request) {
   try {
@@ -12,36 +11,43 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
+    const language = searchParams.get('language') || 'python';
+    const concept = searchParams.get('concept') || 'variables';
 
+    // Get available quizzes from concepts
     const quizzes = await query(`
-      SELECT 
-        q.question_id as id,
-        'Quiz ' || q.question_id as title,
-        c.concept_name as language,
+      SELECT DISTINCT 
+        c.concept_name as title,
+        c.concept_id as id,
+        c.category as language,
         CASE 
-          WHEN q.difficulty < 3 THEN 'beginner'
-          WHEN q.difficulty < 7 THEN 'intermediate'
+          WHEN c.difficulty <= 2 THEN 'beginner'
+          WHEN c.difficulty <= 4 THEN 'intermediate'
           ELSE 'advanced'
         END as difficulty,
-        10 as estimated_time,
-        1 as question_count,
-        COALESCE(
-          (SELECT COUNT(*) FROM responses r WHERE r.question_id = q.question_id AND r.student_id = $1 AND r.is_correct = true)::float / 
-          NULLIF((SELECT COUNT(*) FROM responses r WHERE r.question_id = q.question_id AND r.student_id = $1), 0) * 100, 
-          0
-        ) as progress
-      FROM questions q
-      JOIN concepts c ON q.concept_id = c.concept_id
+        10 as question_count,
+        15 as estimated_time
+      FROM concepts c
+      WHERE ($1::text IS NULL OR c.category = $1 OR c.concept_name ILIKE $1)
+         OR ($2::text IS NULL OR c.concept_name = $2)
+      ORDER BY c.difficulty
       LIMIT 10
-    `, [studentId]);
+    `, [language === 'all' ? null : language, concept === 'all' ? null : concept]);
 
-    return NextResponse.json({ 
-      quizzes: quizzes.rows.map(q => ({ 
-        ...q, 
-        progress: Math.round(q.progress),
-        language: q.language || 'Python'
-      })) 
-    });
+    // Get user's progress for each quiz
+    for (let quiz of quizzes.rows) {
+      const progress = await query(`
+        SELECT COUNT(*) as completed
+        FROM responses r
+        JOIN questions q ON r.question_id = q.question_id
+        JOIN concepts c ON q.concept_id = c.concept_id
+        WHERE r.student_id = $1 AND c.concept_name = $2
+      `, [studentId, quiz.title]);
+      
+      quiz.progress = progress.rows[0]?.completed ? Math.min(100, Math.floor(progress.rows[0].completed / 10 * 100)) : 0;
+    }
+
+    return NextResponse.json({ quizzes: quizzes.rows });
   } catch (error) {
     console.error('Quizzes API error:', error);
     return NextResponse.json({ quizzes: [] });
