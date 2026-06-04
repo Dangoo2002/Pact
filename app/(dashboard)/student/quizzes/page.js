@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Search, Clock, BookOpen, ChevronRight, Filter,
-  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2
+  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2, LayoutDashboard, Target
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -83,7 +83,9 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
+            <div className="bg-blue-500/20 p-2 rounded-xl">
+              <Code className="h-5 w-5 text-blue-400" />
+            </div>
             <span className="text-xl font-bold text-white">PACT</span>
           </div>
           <p className="text-xs text-gray-500 mt-2">Student Portal</p>
@@ -93,8 +95,14 @@ const Sidebar = ({ isOpen, onClose }) => {
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                <Icon size={18} /><span className="text-sm">{item.label}</span>
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+              >
+                <Icon size={18} />
+                <span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
@@ -102,10 +110,21 @@ const Sidebar = ({ isOpen, onClose }) => {
         
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div>
-            <div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div>
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <User className="h-4 w-4 text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
+              <p className="text-xs text-gray-500 capitalize">{role}</p>
+            </div>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"
+          >
+            <LogOut size={16} />
+            Sign Out
+          </button>
         </div>
       </div>
     </>
@@ -225,7 +244,7 @@ export default function QuizzesPage() {
             <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-xl p-4 mb-6 flex items-center gap-3">
               <Bot size={20} className="text-purple-400" />
               <div className="flex-1">
-                <p className="text-sm text-gray-300">AI Recommendation</p>
+                <p className="text-xs text-purple-400 mb-1">AI RECOMMENDATION</p>
                 <p className="text-sm text-white">{aiRecommendation}</p>
               </div>
               <Link href="/student/recommendations">
@@ -314,5 +333,3 @@ export default function QuizzesPage() {
     </div>
   );
 }
-
-import { LayoutDashboard, Target, BookOpen } from 'lucide-react';
