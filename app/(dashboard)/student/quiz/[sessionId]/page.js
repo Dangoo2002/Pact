@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
-  Menu, User, LogOut, Bell, Sparkles, Bot, Send
+  Menu, User, LogOut, Bell, Sparkles, Bot
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -83,7 +83,9 @@ export default function QuizPage() {
       router.push('/login');
       return;
     }
-    loadQuiz();
+    if (sessionId) {
+      loadQuiz();
+    }
   }, [session, sessionId]);
 
   const loadQuiz = async () => {
