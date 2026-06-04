@@ -1,12 +1,10 @@
-// app/api/instructor/students/route.js
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     
     if (!session || session.user.role !== 'instructor') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,20 +15,17 @@ export async function GET() {
         u.user_id as id,
         u.full_name as name,
         u.email,
-        COALESCE((gp.mastery_scores->>'overall')::float * 100, 0) as mastery,
+        COALESCE(ROUND(AVG(CASE WHEN r.is_correct THEN 100 ELSE 0 END)), 0) as mastery,
         CASE 
-          WHEN r.last_activity > NOW() - INTERVAL '7 days' THEN 'active'
+          WHEN MAX(r.timestamp) > NOW() - INTERVAL '7 days' THEN 'active'
           ELSE 'inactive'
         END as status,
-        COALESCE(r.last_activity, u.created_at) as last_active
+        COALESCE(MAX(r.timestamp), u.created_at) as last_active,
+        COUNT(DISTINCT r.response_id) as total_attempts
       FROM users u
-      LEFT JOIN gap_profiles gp ON u.user_id = gp.student_id
-      LEFT JOIN (
-        SELECT student_id, MAX(timestamp) as last_activity 
-        FROM responses 
-        GROUP BY student_id
-      ) r ON u.user_id = r.student_id
+      LEFT JOIN responses r ON u.user_id = r.student_id
       WHERE u.role = 'student'
+      GROUP BY u.user_id, u.full_name, u.email, u.created_at
       ORDER BY u.full_name
     `);
 

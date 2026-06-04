@@ -1,13 +1,11 @@
-// app/api/instructor/settings/route.js
 import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 
 export async function PUT(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     
     if (!session || session.user.role !== 'instructor') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

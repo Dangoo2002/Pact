@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
-  Menu, User, LogOut, Bell, Sparkles
+  Menu, User, LogOut, Bell, Sparkles, Bot, Send
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { startQuizSession, submitAnswer } from '@/lib/api';
@@ -83,9 +83,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl">
-              <Code className="h-5 w-5 text-blue-400" />
-            </div>
+            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
             <span className="text-xl font-bold text-white">PACT</span>
           </div>
           <p className="text-xs text-gray-500 mt-2">Student Portal</p>
@@ -95,14 +93,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
-              >
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
+              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <Icon size={18} /><span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
@@ -110,18 +102,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div>
+            <div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-            <LogOut size={16} />
-            Sign Out
-          </button>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button>
         </div>
       </div>
     </>
@@ -147,6 +131,8 @@ export default function QuizPage() {
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [aiHint, setAiHint] = useState(null);
+  const [gettingHint, setGettingHint] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -161,7 +147,9 @@ export default function QuizPage() {
           id: 'q1',
           text: 'What is the correct way to declare a variable in Python?',
           options: ['var x = 5', 'let x = 5', 'x = 5', 'int x = 5'],
-          type: 'multiple_choice'
+          type: 'multiple_choice',
+          concept: 'variables',
+          language: 'python'
         });
         setTotalQuestions(data.total_questions || 10);
         setTimeLeft(data.time_limit || 600);
@@ -171,7 +159,9 @@ export default function QuizPage() {
           id: 'q1',
           text: 'What is the correct way to declare a variable in Python?',
           options: ['var x = 5', 'let x = 5', 'x = 5', 'int x = 5'],
-          type: 'multiple_choice'
+          type: 'multiple_choice',
+          concept: 'variables',
+          language: 'python'
         });
         setTotalQuestions(10);
         setTimeLeft(600);
@@ -195,10 +185,33 @@ export default function QuizPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getAiHint = async () => {
+    if (!currentQuestion) return;
+    setGettingHint(true);
+    try {
+      const response = await fetch('/api/ai/explain-gap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concept: currentQuestion.concept || 'programming',
+          language: currentQuestion.language || 'python',
+          errorMessage: `Student needs help with: ${currentQuestion.text}`
+        })
+      });
+      const data = await response.json();
+      setAiHint(data.explanation);
+    } catch (error) {
+      setAiHint("Think about the concept carefully. Review the basics and try again.");
+    } finally {
+      setGettingHint(false);
+    }
+  };
+
   const handleAnswerSubmit = async () => {
     if (!selectedAnswer && !codeAnswer) return;
     
     setSubmitting(true);
+    setAiHint(null);
     
     try {
       const result = await submitAnswer(sessionId, currentQuestion?.id, selectedAnswer, codeAnswer);
@@ -226,9 +239,11 @@ export default function QuizPage() {
         setTimeout(() => {
           setCurrentQuestion({
             id: `q${questionsAnswered + 2}`,
-            text: `Sample question ${questionsAnswered + 2}: Continue practicing your skills!`,
+            text: `Continue practicing your skills!`,
             options: ['Option A', 'Option B', 'Option C', 'Option D'],
-            type: 'multiple_choice'
+            type: 'multiple_choice',
+            concept: currentQuestion?.concept || 'programming',
+            language: currentQuestion?.language || 'python'
           });
           setSelectedAnswer(null);
           setCodeAnswer('');
@@ -266,14 +281,13 @@ export default function QuizPage() {
             <p className="text-gray-400 mb-6">You scored {percentage}%</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/student">
-                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">
-                  Back to Dashboard
-                </button>
+                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">Back to Dashboard</button>
               </Link>
               <Link href={`/student/quiz/${quizId}`}>
-                <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">
-                  Retake Quiz
-                </button>
+                <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">Retake Quiz</button>
+              </Link>
+              <Link href="/student/recommendations">
+                <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">View Recommendations</button>
               </Link>
             </div>
           </div>
@@ -290,9 +304,7 @@ export default function QuizPage() {
       <div className="md:ml-64">
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
-            </button>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-blue-400" />
@@ -319,12 +331,28 @@ export default function QuizPage() {
             </div>
 
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-4 pb-2 border-b border-white/10">
-                <Code size={18} className="text-blue-400" />
-                <span className="text-sm font-medium text-gray-300">Question {questionsAnswered + 1}</span>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <Code size={18} className="text-blue-400" />
+                  <span className="text-sm font-medium text-gray-300">Question {questionsAnswered + 1}</span>
+                </div>
+                <button 
+                  onClick={getAiHint} 
+                  disabled={gettingHint || feedback !== null}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50"
+                >
+                  {gettingHint ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                  {gettingHint ? 'Getting hint...' : 'Get AI Hint'}
+                </button>
               </div>
               
               <h3 className="text-lg font-medium text-white mb-6">{currentQuestion?.text}</h3>
+              
+              {aiHint && (
+                <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <p className="text-sm text-purple-300">{aiHint}</p>
+                </div>
+              )}
               
               {currentQuestion?.type !== 'code_writing' && currentQuestion?.options && (
                 <div className="space-y-3 mb-6">

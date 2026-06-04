@@ -1,4 +1,3 @@
-// app/(dashboard)/instructor/students/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -9,9 +8,10 @@ import {
   Code, Users, Search, UserPlus, MoreVertical, 
   Menu, X, LogOut, Bell, User, Loader2, 
   LayoutDashboard, Target, FileText, Settings,
-  Mail, Phone, Calendar, Star, TrendingUp, AlertCircle
+  Mail, Phone, Calendar, Star, TrendingUp, AlertCircle, Bot, Sparkles
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { fetchClassInsights } from '@/lib/api';
 
 const StarBackground = () => {
   const canvasRef = useRef(null);
@@ -46,7 +46,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { href: '/instructor/students', label: 'Students', icon: Users },
     { href: '/instructor/gaps', label: 'Class Gaps', icon: Target },
     { href: '/instructor/assessments', label: 'Assessments', icon: FileText },
-    { href: '/instructor/settings', label: 'Settings', icon: Settings },
+    { href: '/instructor/profile', label: 'Profile', icon: User },
   ];
   return (
     <>
@@ -68,6 +68,7 @@ export default function InstructorStudentsPage() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [insights, setInsights] = useState({});
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -75,7 +76,17 @@ export default function InstructorStudentsPage() {
       return;
     }
     fetchStudents();
+    fetchInsights();
   }, [session, status, router]);
+
+  const fetchInsights = async () => {
+    try {
+      const data = await fetchClassInsights('CS101');
+      setInsights(data);
+    } catch (error) {
+      console.error('Failed to fetch insights:', error);
+    }
+  };
 
   const fetchStudents = async () => {
     try {
@@ -93,6 +104,8 @@ export default function InstructorStudentsPage() {
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
     s.email?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const atRiskStudents = insights.at_risk_students || [];
 
   if (status === 'loading' || loading) {
     return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-purple-400" /></div>;
@@ -112,19 +125,33 @@ export default function InstructorStudentsPage() {
         </div>
 
         <div className="p-4 md:p-6">
-          <div className="mb-6"><h1 className="text-2xl md:text-3xl font-bold text-white">Students</h1><p className="text-sm text-gray-400 mt-1">Manage and monitor student progress</p></div>
+          <div className="mb-6"><h1 className="text-2xl md:text-3xl font-bold text-white">Students</h1><p className="text-sm text-gray-400 mt-1">Monitor student progress and performance</p></div>
+
+          {/* At-Risk Summary Banner */}
+          {atRiskStudents.length > 0 && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-2"><AlertCircle size={16} className="text-red-400" /><span className="text-sm text-gray-300">{atRiskStudents.length} student(s) need attention</span></div>
+              <Link href="/instructor/gaps"><button className="text-xs text-red-400 hover:text-red-300">View Details →</button></Link>
+            </div>
+          )}
 
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
             <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" /><input type="text" placeholder="Search students..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500/50" /></div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredStudents.map((student) => (
-              <div key={student.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-purple-500/30 transition cursor-pointer" onClick={() => setSelectedStudent(student)}>
-                <div className="flex items-center gap-3 mb-3"><div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center"><User size={24} className="text-purple-400" /></div><div><h3 className="font-semibold text-white">{student.name}</h3><p className="text-xs text-gray-500">{student.email}</p></div></div>
-                <div className="flex justify-between items-center pt-3 border-t border-white/10"><div className="flex items-center gap-1"><Star size={14} className="text-yellow-400" /><span className="text-sm text-white">{student.mastery || 0}% Mastery</span></div><span className={`text-xs px-2 py-1 rounded-full ${student.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>{student.status || 'Active'}</span></div>
-              </div>
-            ))}
+            {filteredStudents.map((student) => {
+              const isAtRisk = atRiskStudents.some(risk => risk.student_id == student.id);
+              return (
+                <div key={student.id} className={`bg-white/5 backdrop-blur-sm border rounded-xl p-4 hover:border-purple-500/30 transition cursor-pointer ${isAtRisk ? 'border-red-500/30' : 'border-white/10'}`} onClick={() => setSelectedStudent(student)}>
+                  <div className="flex items-center gap-3 mb-3"><div className={`w-12 h-12 rounded-full flex items-center justify-center ${isAtRisk ? 'bg-red-500/20' : 'bg-purple-500/20'}`}><User size={24} className={isAtRisk ? 'text-red-400' : 'text-purple-400'} /></div><div><h3 className="font-semibold text-white">{student.name}</h3><p className="text-xs text-gray-500">{student.email}</p></div></div>
+                  <div className="flex justify-between items-center pt-3 border-t border-white/10">
+                    <div className="flex items-center gap-1"><Star size={14} className="text-yellow-400" /><span className="text-sm text-white">{student.mastery || 0}% Mastery</span></div>
+                    {isAtRisk && <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-400">At Risk</span>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {filteredStudents.length === 0 && (<div className="text-center py-12 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl"><Users size={48} className="mx-auto text-gray-600 mb-4" /><p className="text-gray-500">No students found.</p></div>)}

@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Search, Clock, BookOpen, ChevronRight, Filter,
-  Sparkles, Menu, X, User, LogOut, Bell
+  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -83,9 +83,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl">
-              <Code className="h-5 w-5 text-blue-400" />
-            </div>
+            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
             <span className="text-xl font-bold text-white">PACT</span>
           </div>
           <p className="text-xs text-gray-500 mt-2">Student Portal</p>
@@ -95,14 +93,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
-              >
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
+              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <Icon size={18} /><span className="text-sm">{item.label}</span>
               </Link>
             );
           })}
@@ -110,21 +102,10 @@ const Sidebar = ({ isOpen, onClose }) => {
         
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div>
+            <div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"
-          >
-            <LogOut size={16} />
-            Sign Out
-          </button>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button>
         </div>
       </div>
     </>
@@ -142,6 +123,8 @@ export default function QuizzesPage() {
   const [difficultyFilter, setDifficultyFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [aiRecommendation, setAiRecommendation] = useState(null);
+  const [gettingRecommendation, setGettingRecommendation] = useState(false);
 
   useEffect(() => {
     if (!session) {
@@ -149,12 +132,33 @@ export default function QuizzesPage() {
       return;
     }
 
-    fetchAvailableQuizzes(session.user.id).then(data => {
-      setQuizzes(data.quizzes || []);
-      setFilteredQuizzes(data.quizzes || []);
+    Promise.all([
+      fetchAvailableQuizzes(session.user.id),
+      getAiQuizRecommendation()
+    ]).then(([quizData, recData]) => {
+      setQuizzes(quizData.quizzes || []);
+      setFilteredQuizzes(quizData.quizzes || []);
+      setAiRecommendation(recData);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [session, router]);
+
+  const getAiQuizRecommendation = async () => {
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: "Based on typical programming learning paths, recommend which quiz I should take next to improve my skills. Suggest one specific topic.",
+          studentId: session?.user?.id
+        })
+      });
+      const data = await response.json();
+      return data.response;
+    } catch (error) {
+      return "Try the Python Basics quiz to strengthen your fundamentals.";
+    }
+  };
 
   useEffect(() => {
     let filtered = [...quizzes];
@@ -196,20 +200,10 @@ export default function QuizzesPage() {
         {/* Navbar */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
-            </button>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
             <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-white/10 relative">
-                <Bell size={18} />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-blue-400" />
-                </div>
-                <span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span>
-              </div>
+              <button className="p-2 rounded-lg hover:bg-white/10 relative"><Bell size={18} /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span></button>
+              <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span></div>
             </div>
           </div>
         </div>
@@ -219,12 +213,26 @@ export default function QuizzesPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">Practice Quizzes</h1>
-              <p className="text-sm text-gray-400 mt-1">Test your knowledge with adaptive assessments</p>
+              <p className="text-sm text-gray-400 mt-1">AI-powered adaptive assessments</p>
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden p-2 rounded-lg border border-white/10 hover:bg-white/10">
               <Filter size={18} className="text-gray-400" />
             </button>
           </div>
+
+          {/* AI Recommendation Banner */}
+          {aiRecommendation && (
+            <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <Bot size={20} className="text-purple-400" />
+              <div className="flex-1">
+                <p className="text-sm text-gray-300">AI Recommendation</p>
+                <p className="text-sm text-white">{aiRecommendation}</p>
+              </div>
+              <Link href="/student/recommendations">
+                <button className="text-xs text-purple-400 hover:text-purple-300 transition">View All →</button>
+              </Link>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
@@ -270,14 +278,8 @@ export default function QuizzesPage() {
               {filteredQuizzes.map((quiz) => (
                 <div key={quiz.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition">
                   <div className="flex items-start justify-between mb-3">
-                    <div className="p-2 rounded-lg bg-blue-500/20">
-                      <Code size={18} className="text-blue-400" />
-                    </div>
-                    {quiz.progress > 0 && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">
-                        {quiz.progress}% complete
-                      </span>
-                    )}
+                    <div className="p-2 rounded-lg bg-blue-500/20"><Code size={18} className="text-blue-400" /></div>
+                    {quiz.progress > 0 && (<span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">{quiz.progress}% complete</span>)}
                   </div>
                   <h3 className="font-semibold text-white mb-1">{quiz.title}</h3>
                   <div className="flex items-center gap-2 text-xs mb-3">
@@ -286,19 +288,11 @@ export default function QuizzesPage() {
                       quiz.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' :
                       quiz.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' :
                       'bg-red-500/20 text-red-400'
-                    }`}>
-                      {quiz.difficulty}
-                    </span>
+                    }`}>{quiz.difficulty}</span>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
-                    <div className="flex items-center gap-1">
-                      <Clock size={12} />
-                      <span>{quiz.estimatedTime} min</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <BookOpen size={12} />
-                      <span>{quiz.questionCount} questions</span>
-                    </div>
+                    <div className="flex items-center gap-1"><Clock size={12} /><span>{quiz.estimatedTime} min</span></div>
+                    <div className="flex items-center gap-1"><BookOpen size={12} /><span>{quiz.questionCount} questions</span></div>
                   </div>
                   <Link href={`/student/quiz/${quiz.id}`}>
                     <button className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium">
@@ -321,5 +315,4 @@ export default function QuizzesPage() {
   );
 }
 
-// Import missing icons
-import { LayoutDashboard, Target, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Target, BookOpen } from 'lucide-react';

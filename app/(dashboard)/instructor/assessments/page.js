@@ -1,4 +1,3 @@
-// app/(dashboard)/instructor/assessments/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -10,7 +9,7 @@ import {
   Menu, X, LogOut, Bell, User, Loader2, 
   LayoutDashboard, Users, Target, Settings,
   Clock, Calendar, Star, TrendingUp, Eye, Save,
-  AlertCircle, CheckCircle, XCircle
+  AlertCircle, CheckCircle, XCircle, Bot, Sparkles
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -47,7 +46,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { href: '/instructor/students', label: 'Students', icon: Users },
     { href: '/instructor/gaps', label: 'Class Gaps', icon: Target },
     { href: '/instructor/assessments', label: 'Assessments', icon: FileText },
-    { href: '/instructor/settings', label: 'Settings', icon: Settings },
+    { href: '/instructor/profile', label: 'Profile', icon: User },
   ];
   return (
     <>
@@ -61,41 +60,13 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-const Toast = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-5 duration-300">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-md border ${
-        type === 'success' ? 'bg-green-500/20 border-green-500/30 text-green-400' :
-        'bg-red-500/20 border-red-500/30 text-red-400'
-      }`}>
-        {type === 'success' ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-        <p className="text-sm">{message}</p>
-      </div>
-    </div>
-  );
-};
-
 export default function InstructorAssessmentsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [assessments, setAssessments] = useState([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingAssessment, setEditingAssessment] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    duration: 30,
-    dueDate: ''
-  });
+  const [aiRecommendation, setAiRecommendation] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -103,6 +74,7 @@ export default function InstructorAssessmentsPage() {
       return;
     }
     fetchAssessments();
+    getAiRecommendation();
   }, [session, status, router]);
 
   const fetchAssessments = async () => {
@@ -112,73 +84,25 @@ export default function InstructorAssessmentsPage() {
       setAssessments(data.assessments || []);
     } catch (error) {
       console.error('Failed to fetch assessments:', error);
-      showToast('Failed to load assessments', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const showToast = (message, type) => {
-    setToast({ message, type });
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      description: '',
-      duration: 30,
-      dueDate: ''
-    });
-  };
-
-  const handleCreateAssessment = async (e) => {
-    e.preventDefault();
-    if (!formData.title) {
-      showToast('Please enter a title', 'error');
-      return;
-    }
-    
-    setSubmitting(true);
+  const getAiRecommendation = async () => {
     try {
-      const response = await fetch('/api/instructor/assessments', {
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ 
+          message: "Based on typical programming learning patterns, what assessment type would you recommend to identify student knowledge gaps? Keep response under 100 words.",
+          context: "instructor_assessments"
+        })
       });
-      
-      if (response.ok) {
-        showToast('Assessment created successfully!', 'success');
-        setShowCreateModal(false);
-        resetForm();
-        fetchAssessments();
-      } else {
-        showToast('Failed to create assessment', 'error');
-      }
+      const data = await response.json();
+      setAiRecommendation(data.response || "Adaptive quizzes are most effective for identifying knowledge gaps as they adjust difficulty based on student responses.");
     } catch (error) {
-      console.error('Failed to create assessment:', error);
-      showToast('Failed to create assessment', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteAssessment = async (id) => {
-    if (!confirm('Are you sure you want to delete this assessment?')) return;
-    
-    try {
-      const response = await fetch(`/api/instructor/assessments?id=${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (response.ok) {
-        showToast('Assessment deleted successfully!', 'success');
-        fetchAssessments();
-      } else {
-        showToast('Failed to delete assessment', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to delete assessment:', error);
-      showToast('Failed to delete assessment', 'error');
+      setAiRecommendation("Adaptive quizzes are most effective for identifying knowledge gaps as they adjust difficulty based on student responses.");
     }
   };
 
@@ -190,7 +114,6 @@ export default function InstructorAssessmentsPage() {
     <div className="min-h-screen bg-[#0A1628] text-white relative">
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
       <div className="md:ml-64">
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
@@ -201,14 +124,28 @@ export default function InstructorAssessmentsPage() {
         </div>
 
         <div className="p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Assessments</h1>
-              <p className="text-sm text-gray-400 mt-1">Create and manage quizzes and tests</p>
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Assessments</h1>
+            <p className="text-sm text-gray-400 mt-1">AI-generated assessments are created automatically based on student needs</p>
+          </div>
+
+          {/* AI Recommendation Banner */}
+          {aiRecommendation && (
+            <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30 rounded-xl p-4 mb-6 flex items-center gap-3">
+              <Bot size={20} className="text-purple-400" />
+              <div className="flex-1">
+                <p className="text-xs text-purple-400 mb-1">AI RECOMMENDATION</p>
+                <p className="text-sm text-white">{aiRecommendation}</p>
+              </div>
             </div>
-            <button onClick={() => { resetForm(); setShowCreateModal(true); }} className="px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition flex items-center gap-2 text-sm whitespace-nowrap">
-              <Plus size={16} /> Create Assessment
-            </button>
+          )}
+
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Sparkles size={18} className="text-purple-400" />
+              <span className="text-sm text-gray-300">Assessments are automatically generated by AI based on student performance data</span>
+            </div>
+            <p className="text-xs text-gray-500">No manual creation needed. The system creates adaptive quizzes tailored to each student's knowledge gaps.</p>
           </div>
 
           {assessments.length > 0 ? (
@@ -217,20 +154,16 @@ export default function InstructorAssessmentsPage() {
                 <div key={assessment.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-purple-500/30 transition">
                   <div className="flex items-start justify-between mb-3">
                     <div className="p-2 rounded-lg bg-purple-500/20"><FileText size={18} className="text-purple-400" /></div>
-                    <div className="flex gap-1">
-                      <button className="p-1 hover:bg-white/10 rounded"><Edit size={14} className="text-blue-400" /></button>
-                      <button onClick={() => handleDeleteAssessment(assessment.id)} className="p-1 hover:bg-white/10 rounded"><Trash2 size={14} className="text-red-400" /></button>
-                    </div>
                   </div>
                   <h3 className="font-semibold text-white mb-1 text-base">{assessment.title}</h3>
                   <p className="text-xs text-gray-500 mb-3 line-clamp-2">{assessment.description}</p>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-300">{assessment.questionCount} questions</span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-300">{assessment.duration} min</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-300">{assessment.questionCount || 10} questions</span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-white/10 text-gray-300">{assessment.duration || 30} min</span>
                   </div>
                   <div className="flex justify-between items-center pt-3 border-t border-white/10">
-                    <span className="text-xs text-gray-500">Due: {assessment.dueDate}</span>
-                    <button className="text-xs text-purple-400 hover:text-purple-300">View Details →</button>
+                    <span className="text-xs text-gray-500">AI Generated</span>
+                    <Link href={`/student/quiz/${assessment.id}`}><button className="text-xs text-purple-400 hover:text-purple-300">Take Assessment →</button></Link>
                   </div>
                 </div>
               ))}
@@ -238,85 +171,12 @@ export default function InstructorAssessmentsPage() {
           ) : (
             <div className="text-center py-12 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl">
               <FileText size={48} className="mx-auto text-gray-600 mb-4" />
-              <p className="text-gray-500">No assessments created yet.</p>
-              <button onClick={() => { resetForm(); setShowCreateModal(true); }} className="mt-4 px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition">
-                Create First Assessment
-              </button>
+              <p className="text-gray-500">Assessments will be generated automatically as students complete quizzes.</p>
+              <p className="text-xs text-gray-500 mt-2">The AI system creates personalized assessments based on student performance.</p>
             </div>
           )}
         </div>
       </div>
-
-      {/* Create Assessment Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0A1628] border border-white/10 rounded-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Create New Assessment</h2>
-              <button onClick={() => { setShowCreateModal(false); resetForm(); }} className="p-1 hover:bg-white/10 rounded transition">
-                <X size={20} className="text-gray-400" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreateAssessment} className="space-y-4">
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Title *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="e.g., Python Basics Quiz"
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Describe the assessment..."
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50 resize-none"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Duration (minutes)</label>
-                <input
-                  type="number"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
-                  min="5"
-                  max="180"
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Due Date</label>
-                <input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
-                />
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm flex items-center justify-center gap-2">
-                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {submitting ? 'Creating...' : 'Create Assessment'}
-                </button>
-                <button type="button" onClick={() => { setShowCreateModal(false); resetForm(); }} className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition text-sm">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// app/instructor/gaps/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -9,11 +8,11 @@ import {
   Code, Target, AlertTriangle, TrendingDown, BarChart3, 
   ChevronRight, Menu, X, LogOut, Bell, User, 
   LayoutDashboard, Users, FileText, Loader2, 
-  CheckCircle, XCircle, Clock, BookOpen, RefreshCw
+  CheckCircle, XCircle, Clock, BookOpen, RefreshCw, Bot, Sparkles
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { fetchClassInsights } from '@/lib/api';
 
-// Static star background
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -21,10 +20,7 @@ const StarBackground = () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const setSize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
+    const setSize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     setSize();
     window.addEventListener('resize', setSize);
     const stars = [];
@@ -52,17 +48,11 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-// Sidebar Component
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const role = session?.user?.role;
-
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/');
-  };
-
+  const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/'); };
   const navItems = [
     { href: '/instructor', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/instructor/students', label: 'Students', icon: Users },
@@ -70,25 +60,13 @@ const Sidebar = ({ isOpen, onClose }) => {
     { href: '/instructor/assessments', label: 'Assessments', icon: FileText },
     { href: '/instructor/profile', label: 'Profile', icon: User },
   ];
-
   return (
     <>
       {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-2"><div className="bg-purple-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-purple-400" /></div><span className="text-xl font-bold text-white">PACT</span></div>
-          <p className="text-xs text-gray-500 mt-2">Instructor Portal</p>
-        </div>
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (<Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"><Icon size={18} /><span className="text-sm">{item.label}</span></Link>);
-          })}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center"><User className="h-4 w-4 text-purple-400" /></div><div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Instructor'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div></div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button>
-        </div>
+        <div className="p-4 border-b border-white/10"><div className="flex items-center gap-2"><div className="bg-purple-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-purple-400" /></div><span className="text-xl font-bold text-white">PACT</span></div><p className="text-xs text-gray-500 mt-2">Instructor Portal</p></div>
+        <nav className="p-3 space-y-1">{navItems.map((item) => { const Icon = item.icon; return (<Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"><Icon size={18} /><span className="text-sm">{item.label}</span></Link>); })}</nav>
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10"><div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center"><User className="h-4 w-4 text-purple-400" /></div><div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Instructor'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div></div><button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button></div>
       </div>
     </>
   );
@@ -103,7 +81,7 @@ export default function ClassGapsPage() {
   const [insights, setInsights] = useState({
     class_gap_heatmap: [],
     common_error_patterns: [],
-    recommendations: []
+    teaching_recommendations: []
   });
 
   useEffect(() => {
@@ -115,30 +93,24 @@ export default function ClassGapsPage() {
   }, [session, status, router]);
 
   const fetchGapInsights = async () => {
-  try {
-    // Change this line from '/api/instructor/gap-insights' to '/api/instructor/gaps'
-    const response = await fetch('/api/instructor/gaps');
-    const data = await response.json();
-    setInsights(data);
-  } catch (error) {
-    console.error('Failed to fetch gap insights:', error);
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
-  }
-};
-
-  const handleRefresh = () => {
     setRefreshing(true);
-    fetchGapInsights();
+    try {
+      const data = await fetchClassInsights('CS101');
+      setInsights({
+        class_gap_heatmap: data.class_gap_heatmap || [],
+        common_error_patterns: data.common_error_patterns || [],
+        teaching_recommendations: data.teaching_recommendations || []
+      });
+    } catch (error) {
+      console.error('Failed to fetch gap insights:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   if (status === 'loading' || loading) {
-    return (
-      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
-      </div>
-    );
+    return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-purple-400" /></div>;
   }
 
   return (
@@ -151,7 +123,7 @@ export default function ClassGapsPage() {
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
             <div className="flex items-center gap-3">
-              <button onClick={handleRefresh} disabled={refreshing} className="p-2 rounded-lg hover:bg-white/10 transition"><RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} /></button>
+              <button onClick={fetchGapInsights} disabled={refreshing} className="p-2 rounded-lg hover:bg-white/10 transition"><RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} /></button>
               <button className="p-2 rounded-lg hover:bg-white/10 relative"><Bell size={18} /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span></button>
               <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center"><User className="h-4 w-4 text-purple-400" /></div><span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Instructor'}</span></div>
             </div>
@@ -161,7 +133,7 @@ export default function ClassGapsPage() {
         <div className="p-4 md:p-6">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-white">Class Knowledge Gaps</h1>
-            <p className="text-sm text-gray-400 mt-1">Identify concepts where students are struggling</p>
+            <p className="text-sm text-gray-400 mt-1">AI-identified concepts where students are struggling</p>
           </div>
 
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-5 mb-6">
@@ -170,20 +142,9 @@ export default function ClassGapsPage() {
               <div className="space-y-4">
                 {insights.class_gap_heatmap.map((gap, idx) => (
                   <div key={idx}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium text-white">{gap.concept}</span>
-                      <span className="text-red-400">{gap.struggling_percentage}% struggling</span>
-                    </div>
-                    <div className="h-8 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-purple-500 to-red-500 rounded-full flex items-center justify-end px-3 text-xs text-white font-medium" style={{ width: `${gap.struggling_percentage}%` }}>
-                        {gap.struggling_percentage > 20 && `${gap.struggling_percentage}%`}
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>{gap.total_attempts} total attempts</span>
-                      <span>{gap.correct_count} correct answers</span>
-                      <span>Success rate: {((gap.correct_count / gap.total_attempts) * 100).toFixed(0)}%</span>
-                    </div>
+                    <div className="flex justify-between text-sm mb-1"><span className="font-medium text-white">{gap.concept}</span><span className="text-red-400">{gap.struggling_percentage}% struggling</span></div>
+                    <div className="h-8 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-purple-500 to-red-500 rounded-full flex items-center justify-end px-3 text-xs text-white font-medium" style={{ width: `${gap.struggling_percentage}%` }}>{gap.struggling_percentage > 20 && `${gap.struggling_percentage}%`}</div></div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-1"><span>{gap.total_attempts || 0} total attempts</span><span>{gap.correct_count || 0} correct answers</span><span>Success rate: {gap.total_attempts > 0 ? Math.round((gap.correct_count / gap.total_attempts) * 100) : 0}%</span></div>
                   </div>
                 ))}
               </div>
@@ -209,17 +170,17 @@ export default function ClassGapsPage() {
           </div>
 
           <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 backdrop-blur-sm border border-purple-500/20 rounded-xl p-4 md:p-5">
-            <h2 className="text-base md:text-lg font-semibold text-white mb-3 flex items-center gap-2">📚 Recommended Instructor Actions</h2>
+            <h2 className="text-base md:text-lg font-semibold text-white mb-3 flex items-center gap-2"><Bot size={18} className="text-purple-400" /> AI Teaching Recommendations</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {insights.recommendations?.length > 0 ? (
-                insights.recommendations.map((rec, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-sm text-gray-300"><CheckCircle size={14} className="text-green-400" /> {rec}</div>
+              {insights.teaching_recommendations?.length > 0 ? (
+                insights.teaching_recommendations.map((rec, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm text-gray-300 p-2 rounded-lg bg-white/5"><Sparkles size={14} className="text-purple-400 mt-0.5" />{rec}</div>
                 ))
               ) : (
                 <>
-                  <div className="flex items-center gap-2 text-sm text-gray-300"><CheckCircle size={14} className="text-green-400" /> Complete more assessments to generate insights</div>
-                  <div className="flex items-center gap-2 text-sm text-gray-300"><CheckCircle size={14} className="text-green-400" /> Review student performance regularly</div>
-                  <div className="flex items-center gap-2 text-sm text-gray-300"><CheckCircle size={14} className="text-green-400" /> Create targeted practice materials</div>
+                  <div className="flex items-start gap-2 text-sm text-gray-300 p-2 rounded-lg bg-white/5"><Sparkles size={14} className="text-purple-400 mt-0.5" />Complete more assessments to generate AI insights</div>
+                  <div className="flex items-start gap-2 text-sm text-gray-300 p-2 rounded-lg bg-white/5"><Sparkles size={14} className="text-purple-400 mt-0.5" />Review student performance data regularly</div>
+                  <div className="flex items-start gap-2 text-sm text-gray-300 p-2 rounded-lg bg-white/5"><Sparkles size={14} className="text-purple-400 mt-0.5" />AI will provide personalized recommendations as data grows</div>
                 </>
               )}
             </div>

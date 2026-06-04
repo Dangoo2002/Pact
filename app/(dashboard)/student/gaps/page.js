@@ -1,4 +1,3 @@
-// app/student/gaps/page.js
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -6,10 +5,11 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, AlertCircle, TrendingDown, ChevronRight, Sparkles,
-  Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2
+  Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2, Bot
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { fetchGapProfile } from '@/lib/api';
 
 const StarBackground = () => {
   const canvasRef = useRef(null);
@@ -80,10 +80,23 @@ export default function StudentGapsPage() {
 
   const fetchGaps = async () => {
     try {
-      const response = await fetch(`/api/student/gaps?studentId=${session.user.id}`);
-      const data = await response.json();
-      setPrimaryGaps(data.primary_gaps || []);
-      setSecondaryGaps(data.secondary_gaps || []);
+      const profile = await fetchGapProfile(session.user.id);
+      const primary = (profile.primary_gaps || []).map(gap => ({
+        concept: gap.concept,
+        language: gap.language || 'python',
+        mastery: Math.round((gap.mastery_score || 0) * 100),
+        severity: gap.severity,
+        gap_type: gap.gap_type,
+        specific_error: gap.specific_error
+      }));
+      const secondary = (profile.secondary_gaps || []).map(gap => ({
+        concept: gap.concept,
+        language: gap.language || 'python',
+        mastery: Math.round((gap.mastery_score || 0.6) * 100),
+        severity: gap.severity
+      }));
+      setPrimaryGaps(primary);
+      setSecondaryGaps(secondary);
     } catch (error) {
       console.error('Failed to fetch gaps:', error);
     } finally {
@@ -91,16 +104,16 @@ export default function StudentGapsPage() {
     }
   };
 
-  const getAiExplanation = async (concept) => {
+  const getAiExplanation = async (concept, language) => {
     setExplaining(prev => ({ ...prev, [concept]: true }));
     try {
       const response = await fetch('/api/ai/explain-gap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ concept, studentId: session?.user?.id })
+        body: JSON.stringify({ concept, language, studentId: session?.user?.id })
       });
       const data = await response.json();
-      setAiExplanation(prev => ({ ...prev, [concept]: data.explanation || 'Review the fundamentals and practice with examples.' }));
+      setAiExplanation(prev => ({ ...prev, [concept]: data.explanation || `Review the fundamentals of ${concept} in ${language}. Practice with simple examples first.` }));
     } catch (error) {
       setAiExplanation(prev => ({ ...prev, [concept]: 'Unable to fetch explanation. Please try again.' }));
     } finally {
@@ -117,13 +130,67 @@ export default function StudentGapsPage() {
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="md:ml-64">
-        <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10"><div className="flex items-center justify-between px-4 py-3 md:px-6"><button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button><div className="flex items-center gap-3"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span></div></div></div></div>
+        <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
+          <div className="flex items-center justify-between px-4 py-3 md:px-6">
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
+            <div className="flex items-center gap-3"><div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span></div></div>
+          </div>
+        </div>
         <div className="p-4 md:p-6">
           <div className="mb-6"><h1 className="text-2xl md:text-3xl font-bold text-white">Knowledge Gaps</h1><p className="text-sm text-gray-400 mt-1">Identified areas where you need improvement</p></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"><div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-red-500/20"><AlertCircle size={20} className="text-red-400" /></div><div><p className="text-2xl font-bold text-white">{primaryGaps.length}</p><p className="text-sm text-gray-500">High Priority Gaps</p></div></div></div><div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-yellow-500/20"><TrendingDown size={20} className="text-yellow-400" /></div><div><p className="text-2xl font-bold text-white">{secondaryGaps.length}</p><p className="text-sm text-gray-500">Improvement Areas</p></div></div></div></div>
-          {primaryGaps.length > 0 && (<div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 mb-6"><h2 className="text-lg font-semibold text-red-400 mb-4">High Priority Gaps</h2><div className="space-y-4">{primaryGaps.map((gap, idx) => (<div key={idx} className="border-b border-white/10 pb-4 last:border-0 last:pb-0"><div className="flex justify-between items-start mb-2"><div><p className="font-medium text-white">{gap.concept}</p><p className="text-sm text-gray-500">Mastery: {gap.mastery}%</p></div><Link href="/student/recommendations" className="text-sm text-blue-400 hover:text-blue-300 transition flex items-center gap-1">Get Resources <ChevronRight size={14} /></Link></div><button onClick={() => getAiExplanation(gap.concept)} className="text-sm text-purple-400 hover:text-purple-300 transition flex items-center gap-1 mt-2">{explaining[gap.concept] ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}{explaining[gap.concept] ? 'Analyzing...' : 'Explain with AI'}</button>{aiExplanation[gap.concept] && (<div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20"><p className="text-sm text-gray-300">{aiExplanation[gap.concept]}</p></div>)}</div>))}</div></div>)}
-          {secondaryGaps.length > 0 && (<div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5"><h2 className="text-lg font-semibold text-yellow-400 mb-4">Improvement Areas</h2><div className="space-y-3">{secondaryGaps.map((gap, idx) => (<div key={idx} className="flex justify-between items-center"><div><p className="font-medium text-white">{gap.concept}</p><p className="text-sm text-gray-500">Mastery: {gap.mastery}%</p></div><Link href="/student/recommendations"><button className="text-sm text-blue-400 hover:text-blue-300 transition">Practice</button></Link></div>))}</div></div>)}
-          {primaryGaps.length === 0 && secondaryGaps.length === 0 && (<div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12"><Brain size={48} className="mx-auto text-gray-600 mb-4" /><h3 className="text-lg font-medium text-white mb-2">No Gaps Detected!</h3><p className="text-sm text-gray-500">Keep up the great work! Take more quizzes to identify areas for improvement.</p><Link href="/student/quizzes"><button className="mt-4 px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">Take a Quiz</button></Link></div>)}
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-red-500/20"><AlertCircle size={20} className="text-red-400" /></div><div><p className="text-2xl font-bold text-white">{primaryGaps.length}</p><p className="text-sm text-gray-500">High Priority Gaps</p></div></div></div>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4"><div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-yellow-500/20"><TrendingDown size={20} className="text-yellow-400" /></div><div><p className="text-2xl font-bold text-white">{secondaryGaps.length}</p><p className="text-sm text-gray-500">Improvement Areas</p></div></div></div>
+          </div>
+          
+          {primaryGaps.length > 0 && (
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 mb-6">
+              <h2 className="text-lg font-semibold text-red-400 mb-4">High Priority Gaps</h2>
+              <div className="space-y-4">
+                {primaryGaps.map((gap, idx) => (
+                  <div key={idx} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
+                    <div className="flex justify-between items-start mb-2">
+                      <div><p className="font-medium text-white">{gap.concept} ({gap.language})</p><p className="text-sm text-gray-500">Mastery: {gap.mastery}%</p></div>
+                      <Link href="/student/recommendations" className="text-sm text-blue-400 hover:text-blue-300 transition flex items-center gap-1">Get Resources <ChevronRight size={14} /></Link>
+                    </div>
+                    <button onClick={() => getAiExplanation(gap.concept, gap.language)} className="text-sm text-purple-400 hover:text-purple-300 transition flex items-center gap-1 mt-2">
+                      {explaining[gap.concept] ? <Loader2 size={14} className="animate-spin" /> : <Bot size={14} />}
+                      {explaining[gap.concept] ? 'Analyzing...' : 'Explain with AI'}
+                    </button>
+                    {aiExplanation[gap.concept] && (
+                      <div className="mt-3 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                        <p className="text-sm text-gray-300">{aiExplanation[gap.concept]}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {secondaryGaps.length > 0 && (
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5">
+              <h2 className="text-lg font-semibold text-yellow-400 mb-4">Improvement Areas</h2>
+              <div className="space-y-3">
+                {secondaryGaps.map((gap, idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <div><p className="font-medium text-white">{gap.concept} ({gap.language})</p><p className="text-sm text-gray-500">Mastery: {gap.mastery}%</p></div>
+                    <Link href="/student/recommendations"><button className="text-sm text-blue-400 hover:text-blue-300 transition">Practice</button></Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {primaryGaps.length === 0 && secondaryGaps.length === 0 && (
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12">
+              <Brain size={48} className="mx-auto text-gray-600 mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No Gaps Detected!</h3>
+              <p className="text-sm text-gray-500">Keep up the great work! Take more quizzes to identify areas for improvement.</p>
+              <Link href="/student/quizzes"><button className="mt-4 px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">Take a Quiz</button></Link>
+            </div>
+          )}
         </div>
       </div>
     </div>
