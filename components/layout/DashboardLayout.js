@@ -31,9 +31,9 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0A1628]">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+    <div className="min-h-screen bg-[#0A1628]">
+      {/* Desktop Sidebar - Fixed */}
+      <div className="hidden md:block fixed left-0 top-0 h-full z-40">
         <Sidebar />
       </div>
 
@@ -47,10 +47,15 @@ export default function DashboardLayout({ children }) {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+      {/* Main Content Area with margin for fixed sidebar */}
+      <div className="md:ml-64">
+        {/* Fixed Navbar */}
+        <div className="fixed top-0 right-0 left-0 md:left-64 z-30 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
+          <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        </div>
+        
+        {/* Main Content with top padding to account for fixed navbar */}
+        <main className="pt-16">
           {children}
         </main>
       </div>
