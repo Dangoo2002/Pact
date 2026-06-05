@@ -13,8 +13,8 @@ import {
   Bot, Send, MessageCircle, X, Minimize2, Maximize2,
   Settings, HelpCircle, LifeBuoy, FileText, GraduationCap,
   Trophy, Briefcase, Rocket, Globe, Database, Cpu,
-  Shield, GitBranch, Layers, Server, Copy, ThumbsUp, ThumbsDown,
-  Home, BookMarked, BarChart, LineChart as LineChartIcon
+  Shield, FastIcon, GitBranch, Layers, Server, Copy, ThumbsUp, ThumbsDown,
+  Home, BookMarked, BarChart
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -62,7 +62,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       <div className={`fixed top-0 left-0 h-full w-72 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-2.5 rounded-xl">
+            <div className="bg-blue-500 p-2.5 rounded-xl">
               <Code className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -89,7 +89,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         </nav>
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
           <div className="flex items-center gap-3 mb-3 p-2 rounded-xl bg-white/5">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
               <User className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
@@ -111,12 +111,12 @@ const Sidebar = ({ isOpen, onClose }) => {
 const ProgressBar = ({ value, max = 100, color = 'blue' }) => {
   const percentage = Math.min(100, (value / max) * 100);
   const colorClass = {
-    blue: 'bg-gradient-to-r from-blue-500 to-blue-400',
-    green: 'bg-gradient-to-r from-green-500 to-green-400',
-    yellow: 'bg-gradient-to-r from-yellow-500 to-yellow-400',
-    red: 'bg-gradient-to-r from-red-500 to-red-400',
-    purple: 'bg-gradient-to-r from-purple-500 to-purple-400'
-  }[color] || 'bg-gradient-to-r from-blue-500 to-blue-400';
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    yellow: 'bg-yellow-500',
+    red: 'bg-red-500',
+    purple: 'bg-purple-500'
+  }[color] || 'bg-blue-500';
   
   return (
     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
@@ -139,6 +139,14 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
   </div>
 );
 
+// Get time-based greeting
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 // Main Dashboard Component
 export default function StudentDashboard() {
   const { data: session, status } = useSession();
@@ -155,31 +163,22 @@ export default function StudentDashboard() {
       currentStreak: 0,
       longestStreak: 0,
       performanceTier: 'beginner',
-      totalTimeSpent: 0,
       conceptsMastered: 0,
       totalConcepts: 15
     },
     conceptMastery: [],
     recentActivity: [],
     weeklyProgress: [],
-    upcomingQuizzes: [],
-    achievements: [],
     primaryGapsCount: 0,
-    recommendationsCount: 0,
-    aiInsights: null
+    recommendationsCount: 0
   });
   const [loading, setLoading] = useState(true);
-  const [activeRightPanel, setActiveRightPanel] = useState('ai');
-  const [messages, setMessages] = useState([
-    { 
-      id: 1,
-      role: 'assistant', 
-      content: `Hello! I'm your AI learning assistant. I can help you with programming concepts, analyze your performance, and provide personalized study recommendations.\n\nWhat would you like to learn about today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    }
-  ]);
+  
+  // AI Chat State
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -192,80 +191,154 @@ export default function StudentDashboard() {
     }
   }, [session, status, router]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [
-        perfResponse,
-        conceptsResponse,
-        activityResponse,
-        weeklyResponse,
-        gapsResponse,
-        recResponse
-      ] = await Promise.all([
-        fetch(`/api/student/performance-stats?studentId=${session.user.id}`),
-        fetch(`/api/student/concept-mastery?studentId=${session.user.id}`),
-        fetch(`/api/student/recent-activity?studentId=${session.user.id}`),
-        fetch(`/api/student/weekly-progress?studentId=${session.user.id}`),
+      // Fetch from your existing APIs that work
+      const [gapsResponse, recResponse, responsesResponse] = await Promise.all([
         fetch(`/api/student/gaps?studentId=${session.user.id}`),
-        fetch(`/api/student/recommendations?studentId=${session.user.id}`)
+        fetch(`/api/student/recommendations?studentId=${session.user.id}`),
+        fetch(`/api/student/responses?studentId=${session.user.id}`)
       ]);
 
-      const perfData = await perfResponse.json();
-      const conceptsData = await conceptsResponse.json();
-      const activityData = await activityResponse.json();
-      const weeklyData = await weeklyResponse.json();
       const gapsData = await gapsResponse.json();
       const recData = await recResponse.json();
+      const responsesData = await responsesResponse.json();
 
-      const newDashboardData = {
+      const responses = responsesData.responses || [];
+      const totalQuestions = responses.length;
+      const correctAnswers = responses.filter(r => r.is_correct === true).length;
+      const averageScore = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+      // Calculate concept mastery from responses
+      const conceptMap = new Map();
+      for (const resp of responses) {
+        const concept = resp.concept || 'general';
+        if (!conceptMap.has(concept)) {
+          conceptMap.set(concept, { total: 0, correct: 0 });
+        }
+        const stats = conceptMap.get(concept);
+        stats.total++;
+        if (resp.is_correct) stats.correct++;
+      }
+
+      const conceptMastery = Array.from(conceptMap.entries()).map(([concept, stats]) => ({
+        concept,
+        mastery: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+        totalQuestions: stats.total,
+        correctAnswers: stats.correct
+      })).sort((a, b) => b.mastery - a.mastery);
+
+      const overallMastery = conceptMastery.length > 0 
+        ? Math.round(conceptMastery.reduce((sum, c) => sum + c.mastery, 0) / conceptMastery.length)
+        : 0;
+
+      const conceptsMastered = conceptMastery.filter(c => c.mastery >= 80).length;
+
+      // Get recent activity
+      const recentActivity = responses.slice(0, 5).map(r => ({
+        concept: r.concept,
+        isCorrect: r.is_correct,
+        timestamp: r.timestamp,
+        question: r.question_text?.substring(0, 60) + '...'
+      }));
+
+      // Calculate weekly progress from response dates
+      const weekMap = new Map();
+      for (const resp of responses) {
+        if (resp.timestamp) {
+          const date = new Date(resp.timestamp);
+          const weekStart = getWeekStart(date);
+          const weekKey = weekStart.toISOString().split('T')[0];
+          if (!weekMap.has(weekKey)) {
+            weekMap.set(weekKey, { total: 0, correct: 0, count: 0 });
+          }
+          const weekStats = weekMap.get(weekKey);
+          weekStats.total++;
+          if (resp.is_correct) weekStats.correct++;
+          weekStats.count++;
+        }
+      }
+
+      const weeklyProgress = Array.from(weekMap.entries())
+        .map(([weekStart, stats]) => ({
+          weekStart,
+          averageScore: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+          quizzesCompleted: stats.count
+        }))
+        .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart))
+        .slice(-4);
+
+      // Calculate streak from response dates
+      let streak = 0;
+      const uniqueDates = [...new Set(responses.map(r => new Date(r.timestamp).toDateString()))];
+      if (uniqueDates.length > 0) {
+        streak = 1;
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 86400000).toDateString();
+        if (uniqueDates.includes(today) || uniqueDates.includes(yesterday)) {
+          streak = Math.min(uniqueDates.length, 7);
+        }
+      }
+
+      // Get completed quizzes count
+      const sessionsResponse = await fetch(`/api/student/sessions?studentId=${session.user.id}`);
+      const sessionsData = await sessionsResponse.json();
+      const completedQuizzes = (sessionsData.sessions || []).filter(s => s.status === 'completed').length;
+
+      setDashboardData({
         performance: {
-          totalQuizzes: perfData.performance?.totalQuizzes || 0,
-          completedQuizzes: perfData.performance?.completedQuizzes || 0,
-          averageScore: perfData.performance?.averageScore || 0,
-          totalQuestions: perfData.performance?.totalQuestions || 0,
-          correctAnswers: perfData.performance?.correctAnswers || 0,
-          overallMastery: perfData.performance?.overallMastery || 0,
-          currentStreak: perfData.performance?.currentStreak || 0,
-          longestStreak: perfData.performance?.longestStreak || 0,
-          performanceTier: perfData.performance?.performanceTier || 'beginner',
-          totalTimeSpent: perfData.performance?.totalTimeSpent || 0,
-          conceptsMastered: conceptsData.concepts?.filter(c => c.mastery >= 80).length || 0,
+          totalQuizzes: (sessionsData.sessions || []).length,
+          completedQuizzes: completedQuizzes,
+          averageScore: averageScore,
+          totalQuestions: totalQuestions,
+          correctAnswers: correctAnswers,
+          overallMastery: overallMastery,
+          currentStreak: streak,
+          longestStreak: streak,
+          performanceTier: overallMastery >= 80 ? 'excellent' : overallMastery >= 60 ? 'average' : 'beginner',
+          conceptsMastered: conceptsMastered,
           totalConcepts: 15
         },
-        conceptMastery: conceptsData.concepts || [],
-        recentActivity: activityData.activities || [],
-        weeklyProgress: weeklyData.progress || [],
-        upcomingQuizzes: [
-          { id: 1, title: 'Variables & Data Types', dueDate: 'Today', priority: 'high' },
-          { id: 2, title: 'Control Flow & Loops', dueDate: 'Tomorrow', priority: 'medium' },
-          { id: 3, title: 'Functions & Scope', dueDate: 'This week', priority: 'low' }
-        ],
-        achievements: [
-          { title: 'First Quiz Completed', earned: perfData.performance?.completedQuizzes > 0, icon: Trophy },
-          { title: '7 Day Streak', earned: (perfData.performance?.currentStreak || 0) >= 7, icon: Flame },
-          { title: 'Perfect Score', earned: (perfData.performance?.averageScore || 0) >= 90, icon: Star }
-        ],
+        conceptMastery: conceptMastery.slice(0, 5),
+        recentActivity: recentActivity,
+        weeklyProgress: weeklyProgress,
         primaryGapsCount: gapsData.primary_gaps?.length || 0,
-        recommendationsCount: recData.recommendations?.length || 0,
-        aiInsights: null
-      };
-      
-      setDashboardData(newDashboardData);
-      
+        recommendationsCount: recData.recommendations?.length || 0
+      });
+
+      // Add AI welcome message
+      const greeting = getGreeting();
+      const studentName = session?.user?.name?.split(' ')[0] || 'there';
+      setMessages([
+        { 
+          id: 1,
+          role: 'assistant', 
+          content: `${greeting}, ${studentName}! 👋 I'm your AI learning assistant.\n\nBased on your progress, you've completed ${completedQuizzes} quizzes with ${averageScore}% average accuracy. Your overall mastery is at ${overallMastery}%.\n\nHow can I help you today? You can ask me about:\n• Programming concepts you're struggling with\n• Your knowledge gaps and how to fix them\n• Recommended resources for specific topics\n• Study strategies and tips`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getWeekStart = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
   };
 
   const sendMessage = async () => {
@@ -324,24 +397,10 @@ export default function StudentDashboard() {
     }
   };
 
-  const getPerformanceColor = (tier) => {
-    switch(tier) {
-      case 'excellent': return 'text-green-400 bg-green-500/20';
-      case 'average': return 'text-yellow-400 bg-yellow-500/20';
-      default: return 'text-blue-400 bg-blue-500/20';
-    }
-  };
-
   const getScoreColor = (score) => {
     if (score >= 80) return 'text-green-400';
     if (score >= 60) return 'text-yellow-400';
     return 'text-blue-400';
-  };
-
-  const getMasteryColor = (mastery) => {
-    if (mastery >= 80) return 'green';
-    if (mastery >= 60) return 'yellow';
-    return 'blue';
   };
 
   if (status === 'loading' || loading) {
@@ -355,8 +414,9 @@ export default function StudentDashboard() {
     );
   }
 
-  const { performance, conceptMastery, recentActivity, weeklyProgress, upcomingQuizzes, achievements } = dashboardData;
-  const performanceTier = performance.performanceTier || 'beginner';
+  const { performance, conceptMastery, recentActivity, weeklyProgress } = dashboardData;
+  const greeting = getGreeting();
+  const studentName = session?.user?.name?.split(' ')[0] || 'Student';
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white">
@@ -387,13 +447,13 @@ export default function StudentDashboard() {
                 <HelpCircle size={18} className="text-gray-400" />
               </button>
               <div className="flex items-center gap-2 ml-2">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
                   <span className="text-sm font-medium text-white">
                     {session?.user?.name?.charAt(0) || 'S'}
                   </span>
                 </div>
                 <span className="text-sm text-white hidden sm:inline">
-                  {session?.user?.name?.split(' ')[0] || 'Student'}
+                  {studentName}
                 </span>
               </div>
             </div>
@@ -402,14 +462,14 @@ export default function StudentDashboard() {
 
         {/* Main Content - Split Layout */}
         <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
-          {/* Left Panel - Analytics & Metrics (60%) */}
-          <div className="w-full lg:w-[60%] overflow-y-auto p-6 border-r border-white/10">
-            {/* Welcome Section */}
+          {/* Left Panel - Analytics & Metrics (55%) */}
+          <div className="w-full lg:w-[55%] overflow-y-auto p-6 border-r border-white/10">
+            {/* Welcome Section - FIXED: Now displays correctly */}
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white">Welcome back, {session?.user?.name?.split(' ')[0] || 'Student'}!</h2>
+              <h2 className="text-2xl font-bold text-white">{greeting}, {studentName}! 👋</h2>
               <p className="text-gray-400 mt-1 text-sm">
                 {performance.totalQuizzes === 0 
-                  ? "Start your first quiz to begin your learning journey" 
+                  ? "Ready to start your learning journey? Take your first quiz today!" 
                   : `Great progress! You've completed ${performance.completedQuizzes} quizzes and are on a ${performance.currentStreak}-day streak.`}
               </p>
             </div>
@@ -463,13 +523,13 @@ export default function StudentDashboard() {
               </div>
               <div className="space-y-4">
                 {conceptMastery.length > 0 ? (
-                  conceptMastery.slice(0, 5).map((concept, idx) => (
+                  conceptMastery.map((concept, idx) => (
                     <div key={idx}>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-gray-300 capitalize">{concept.concept?.replace(/_/g, ' ')}</span>
                         <span className={getScoreColor(concept.mastery)}>{Math.round(concept.mastery)}%</span>
                       </div>
-                      <ProgressBar value={concept.mastery} color={getMasteryColor(concept.mastery)} />
+                      <ProgressBar value={concept.mastery} color={concept.mastery >= 80 ? 'green' : concept.mastery >= 60 ? 'yellow' : 'blue'} />
                       <p className="text-xs text-gray-500 mt-1.5">{concept.totalQuestions} questions • {concept.correctAnswers} correct</p>
                     </div>
                   ))
@@ -482,128 +542,148 @@ export default function StudentDashboard() {
               </div>
             </div>
 
-            {/* Weekly Progress and Recent Activity Tabs */}
+            {/* Weekly Progress */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-              <div className="flex gap-4 mb-4 border-b border-white/10 pb-2">
-                <button className="text-sm font-medium text-blue-400 border-b-2 border-blue-400 pb-2">
-                  Weekly Progress
-                </button>
-                <button className="text-sm font-medium text-gray-400 hover:text-white transition pb-2">
-                  Recent Activity
-                </button>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 rounded-lg bg-green-500/20">
+                  <LineChart size={18} className="text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Weekly Progress</h3>
               </div>
-              
-              {/* Weekly Progress Content */}
-              <div>
-                {weeklyProgress.length > 0 ? (
-                  <div className="space-y-4">
-                    {weeklyProgress.map((week, idx) => (
-                      <div key={idx}>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-400">Week of {new Date(week.weekStart).toLocaleDateString()}</span>
-                          <span className={getScoreColor(week.averageScore)}>{Math.round(week.averageScore)}%</span>
-                        </div>
-                        <ProgressBar value={week.averageScore} color={getMasteryColor(week.averageScore)} />
-                        <p className="text-xs text-gray-500 mt-1.5">{week.quizzesCompleted} quizzes completed</p>
+              {weeklyProgress.length > 0 ? (
+                <div className="space-y-4">
+                  {weeklyProgress.map((week, idx) => (
+                    <div key={idx}>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-gray-400">Week of {new Date(week.weekStart).toLocaleDateString()}</span>
+                        <span className={getScoreColor(week.averageScore)}>{Math.round(week.averageScore)}%</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Calendar size={32} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-500">Complete quizzes to see your progress trend</p>
-                  </div>
-                )}
-              </div>
+                      <ProgressBar value={week.averageScore} color={week.averageScore >= 80 ? 'green' : week.averageScore >= 60 ? 'yellow' : 'blue'} />
+                      <p className="text-xs text-gray-500 mt-1.5">{week.quizzesCompleted} quizzes completed</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Calendar size={32} className="mx-auto text-gray-600 mb-3" />
+                  <p className="text-sm text-gray-500">Complete quizzes to see your progress trend</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right Panel - AI Assistant (40%) */}
-          <div className="w-full lg:w-[40%] flex flex-col bg-[#0D1A2D]/50 backdrop-blur-sm">
+          {/* Right Panel - AI Assistant (45%) */}
+          <div className="w-full lg:w-[45%] flex flex-col bg-[#0D1A2D]/50 backdrop-blur-sm">
             {/* Panel Header */}
-            <div className="p-4 border-b border-white/10 bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500">
-                  <Bot size={20} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">PACT AI Assistant</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
-                    <p className="text-xs text-green-400">Ready to help</p>
+            <div className="p-4 border-b border-white/10 bg-blue-500/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-blue-500">
+                    <Bot size={20} className="text-white" />
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] ${msg.role === 'user' ? 'order-1' : ''}`}>
-                    <div className={`p-3 rounded-2xl ${
-                      msg.role === 'user' 
-                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
-                        : 'bg-white/10 border border-white/20 text-gray-200'
-                    }`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                    </div>
-                    <p className={`text-xs text-gray-500 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                      {msg.timestamp}
-                    </p>
-                  </div>
-                  {msg.role === 'user' && (
-                    <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center ml-3 flex-shrink-0">
-                      <User size={16} className="text-blue-400" />
-                    </div>
-                  )}
-                  {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mr-3 flex-shrink-0">
-                      <Bot size={16} className="text-white" />
-                    </div>
-                  )}
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center mr-3 flex-shrink-0">
-                    <Bot size={16} className="text-white" />
-                  </div>
-                  <div className="bg-white/10 border border-white/20 rounded-2xl p-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  <div>
+                    <h3 className="font-semibold text-white">PACT AI Assistant</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></div>
+                      <p className="text-xs text-green-400">Online • Ready to help</p>
                     </div>
                   </div>
                 </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Chat Input */}
-            <div className="p-4 border-t border-white/10 bg-white/5">
-              <div className="flex gap-2">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything about your learning journey..."
-                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 resize-none"
-                  rows={2}
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={isLoading || !input.trim()}
-                  className="px-4 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                <button 
+                  onClick={() => setIsChatMinimized(!isChatMinimized)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition"
                 >
-                  {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                  {isChatMinimized ? <Maximize2 size={16} className="text-gray-400" /> : <Minimize2 size={16} className="text-gray-400" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Powered by Mistral AI and PACT • Real-time learning assistance
-              </p>
             </div>
+
+            {!isChatMinimized && (
+              <>
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {messages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'assistant' && (
+                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3 flex-shrink-0">
+                          <Bot size={16} className="text-white" />
+                        </div>
+                      )}
+                      <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-1' : ''}`}>
+                        <div className={`p-3 rounded-2xl ${
+                          msg.role === 'user' 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-white/10 border border-white/20 text-gray-200'
+                        }`}>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        </div>
+                        <p className={`text-xs text-gray-500 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+                          {msg.timestamp}
+                        </p>
+                      </div>
+                      {msg.role === 'user' && (
+                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center ml-3 flex-shrink-0">
+                          <User size={16} className="text-blue-400" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center mr-3 flex-shrink-0">
+                        <Bot size={16} className="text-white" />
+                      </div>
+                      <div className="bg-white/10 border border-white/20 rounded-2xl p-3">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Chat Input */}
+                <div className="p-4 border-t border-white/10 bg-white/5">
+                  <div className="flex gap-2">
+                    <textarea
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Ask me about your learning progress, concepts, or gaps..."
+                      className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 resize-none"
+                      rows={2}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={isLoading || !input.trim()}
+                      className="px-4 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Powered by Mistral AI • Real-time learning assistance
+                  </p>
+                </div>
+              </>
+            )}
+
+            {isChatMinimized && (
+              <div className="flex-1 flex items-center justify-center p-8">
+                <button 
+                  onClick={() => setIsChatMinimized(false)}
+                  className="text-center"
+                >
+                  <div className="p-4 rounded-full bg-blue-500/20 mx-auto mb-3">
+                    <Bot size={32} className="text-blue-400" />
+                  </div>
+                  <p className="text-gray-400 text-sm">Click to open AI Assistant</p>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
