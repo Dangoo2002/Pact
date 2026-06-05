@@ -209,7 +209,7 @@ const HexagonalGrid = ({ concepts }) => {
   );
 };
 
-// AI Assistant Section Component
+// AI Assistant Section Component - FIXED with correct icon
 const AIAssistantSection = ({ messages, input, setInput, sendMessage, isLoading, messagesEndRef, handleKeyPress }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -233,7 +233,7 @@ const AIAssistantSection = ({ messages, input, setInput, sendMessage, isLoading,
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/10 rounded">
-            <Minimize2 size={14} className="text-gray-400" />
+            <Minimize size={14} className="text-gray-400" />
           </button>
           <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/10 rounded">
             <X size={14} className="text-gray-400" />
