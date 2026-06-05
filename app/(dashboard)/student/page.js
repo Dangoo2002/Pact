@@ -132,8 +132,9 @@ const StatCard = ({ title, value, subtitle, icon: Icon }) => (
   </div>
 );
 
-// Line Graph Component for Concept Performance (from concept_performance table)
+// Line Graph Component for Concept Performance
 const ConceptLineGraph = ({ concepts }) => {
+  const maxMastery = 100;
   const sortedConcepts = [...concepts].sort((a, b) => a.mastery - b.mastery);
   
   return (
@@ -181,7 +182,7 @@ const ConceptLineGraph = ({ concepts }) => {
   );
 };
 
-// Hexagonal Graph Component (showing top 6 concepts from concept_performance)
+// Hexagonal Graph Component
 const HexagonalGraph = ({ concepts }) => {
   const getColor = (mastery) => {
     if (mastery >= 80) return '#10B981';
@@ -236,7 +237,7 @@ const HexagonalGraph = ({ concepts }) => {
   );
 };
 
-// Ranked Concept List (from concept_performance table)
+// Ranked Concept List
 const RankedConceptList = ({ concepts }) => {
   const sortedConcepts = [...concepts].sort((a, b) => b.mastery - a.mastery);
   
@@ -309,8 +310,7 @@ export default function StudentDashboard() {
       totalQuestions: 0,
       correctAnswers: 0,
       accuracy: 0,
-      overallMastery: 0,
-      performanceTier: 'beginner'
+      overallMastery: 0
     },
     conceptMastery: [],
     primaryGaps: [],
@@ -346,48 +346,54 @@ export default function StudentDashboard() {
     try {
       const studentId = session.user.id;
       
-      // Fetch concept performance from your database
-      const conceptRes = await fetch(`/api/student/concept-performance?studentId=${studentId}`);
-      const conceptData = await conceptRes.json();
-      
-      // Fetch student performance
-      const perfRes = await fetch(`/api/student/student-performance?studentId=${studentId}`);
-      const perfData = await perfRes.json();
-      
-      // Fetch gaps from your gap analysis API
       const gapsRes = await fetch(`/api/student/gaps?studentId=${studentId}`);
       const gapsData = await gapsRes.json();
       
-      // Map concept_performance data to dashboard format
-      const conceptMastery = (conceptData.concepts || []).map(c => ({
-        concept: c.concept,
-        mastery: parseFloat(c.mastery_score) || 0,
-        totalQuestions: c.total_questions || 0,
-        correctAnswers: c.correct_answers || 0
+      const responsesRes = await fetch(`/api/student/responses?studentId=${studentId}`);
+      const responsesData = await responsesRes.json();
+      const responses = responsesData.responses || [];
+      
+      const totalQuestions = responses.length;
+      const correctAnswers = responses.filter(r => r.is_correct === true).length;
+      const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+      
+      const sessionsRes = await fetch(`/api/student/sessions?studentId=${studentId}`);
+      const sessionsData = await sessionsRes.json();
+      const sessions = sessionsData.sessions || [];
+      const completedQuizzes = sessions.filter(s => s.status === 'completed').length;
+      
+      const conceptMap = new Map();
+      for (const resp of responses) {
+        const concept = resp.concept || 'general';
+        if (!conceptMap.has(concept)) {
+          conceptMap.set(concept, { total: 0, correct: 0 });
+        }
+        const stats = conceptMap.get(concept);
+        stats.total++;
+        if (resp.is_correct) stats.correct++;
+      }
+      
+      const conceptMastery = Array.from(conceptMap.entries()).map(([concept, stats]) => ({
+        concept,
+        mastery: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0,
+        totalQuestions: stats.total,
+        correctAnswers: stats.correct
       }));
       
-      // Calculate overall mastery from concept_performance
       const overallMastery = conceptMastery.length > 0 
         ? Math.round(conceptMastery.reduce((sum, c) => sum + c.mastery, 0) / conceptMastery.length)
-        : perfData.overall_mastery || 0;
-      
-      // Calculate accuracy from student_performance
-      const accuracy = perfData.average_score || 
-        (perfData.total_correct_answers && perfData.total_questions_answered 
-          ? Math.round((perfData.total_correct_answers / perfData.total_questions_answered) * 100)
-          : 0);
+        : 0;
       
       setDashboardData({
         performance: {
-          totalQuizzes: perfData.total_quizzes || 0,
-          completedQuizzes: perfData.completed_quizzes || 0,
-          totalQuestions: perfData.total_questions_answered || 0,
-          correctAnswers: perfData.total_correct_answers || 0,
-          accuracy: accuracy,
-          overallMastery: overallMastery,
-          performanceTier: perfData.performance_tier || 'beginner'
+          totalQuizzes: sessions.length,
+          completedQuizzes,
+          totalQuestions,
+          correctAnswers,
+          accuracy,
+          overallMastery
         },
-        conceptMastery: conceptMastery,
+        conceptMastery,
         primaryGaps: gapsData.primary_gaps || [],
         secondaryGaps: gapsData.secondary_gaps || []
       });
@@ -399,7 +405,7 @@ export default function StudentDashboard() {
         { 
           id: 1,
           role: 'assistant', 
-          content: `${greeting}, ${studentName}! I'm your AI learning assistant.\n\n**Your Learning Summary:**\n• You've completed ${perfData.completed_quizzes || 0} quizzes\n• Your overall accuracy is ${accuracy}%\n• Your mastery score is ${overallMastery}%\n• You have ${gapsData.primary_gaps?.length || 0} knowledge gaps\n\nHow can I help you today?`,
+          content: `${greeting}, ${studentName}! I'm your AI learning assistant.\n\n**Your Learning Summary:**\n• You've completed ${completedQuizzes} quizzes\n• Your overall accuracy is ${accuracy}%\n• You have ${gapsData.primary_gaps?.length || 0} knowledge gaps\n\nHow can I help you today?`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -434,7 +440,6 @@ export default function StudentDashboard() {
           context: {
             accuracy: dashboardData.performance.accuracy,
             totalQuizzes: dashboardData.performance.completedQuizzes,
-            overallMastery: dashboardData.performance.overallMastery,
             primaryGaps: dashboardData.primaryGaps
           }
         })
@@ -485,7 +490,7 @@ export default function StudentDashboard() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Fixed Header */}
+        {/* Static Header - Fixed at top */}
         <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
@@ -511,12 +516,10 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Main Content with proper padding for fixed header */}
-        {/* Added pt-24 to push content down below the fixed header on all screens */}
-        <div className="pt-24 md:pt-24 px-4 md:px-6 pb-24 md:pb-6">
-          
-          {/* Welcome Section - Now fully visible below header */}
-          <div className="mb-8">
+        {/* Main Content with padding for fixed header */}
+        <div className="pt-20 md:pt-20 px-4 md:px-6 pb-24 md:pb-6">
+          {/* Welcome Section - Pushed down and persistent */}
+          <div className="mb-6 mt-2">
             <h2 className="text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               {greeting}, {studentName}!
             </h2>
@@ -527,7 +530,7 @@ export default function StudentDashboard() {
             </p>
           </div>
 
-          {/* Stats Grid - Data from student_performance table */}
+          {/* Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
             <StatCard 
               title="Quizzes Done"
@@ -544,7 +547,6 @@ export default function StudentDashboard() {
             <StatCard 
               title="Mastery"
               value={`${performance.overallMastery}%`}
-              subtitle={performance.performanceTier?.replace('_', ' ')}
               icon={Brain}
             />
             <StatCard 
@@ -554,10 +556,10 @@ export default function StudentDashboard() {
             />
           </div>
 
-          {/* Visualizations Section - Data from concept_performance table */}
-          {conceptMastery.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Line Graph Visualization */}
+          {/* Visualizations Section - Fully responsive */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Line Graph Visualization */}
+            {conceptMastery.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -570,8 +572,10 @@ export default function StudentDashboard() {
                   <ConceptLineGraph concepts={conceptMastery} />
                 </div>
               </div>
+            )}
 
-              {/* Hexagonal Graph Visualization */}
+            {/* Hexagonal Graph Visualization */}
+            {conceptMastery.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -582,10 +586,10 @@ export default function StudentDashboard() {
                 </div>
                 <HexagonalGraph concepts={conceptMastery} />
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Ranked Concept Performance List - Data from concept_performance table */}
+          {/* Concept Performance List */}
           {conceptMastery.length > 0 && (
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -603,7 +607,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* High Priority Gaps - Data from gap analysis API */}
+          {/* High Priority Gaps - Now sourced from same data */}
           {primaryGaps && primaryGaps.length > 0 && (
             <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4 mb-6">
               <div className="flex items-start gap-3">
