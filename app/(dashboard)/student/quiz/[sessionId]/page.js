@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
-  Menu, User, LogOut, Bell, Sparkles, Bot
+  Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -64,6 +64,7 @@ export default function QuizPage() {
   const sessionId = params.sessionId;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
+  const [allQuestions, setAllQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [codeAnswer, setCodeAnswer] = useState('');
@@ -72,7 +73,7 @@ export default function QuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [score, setScore] = useState(0);
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(10);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600);
   const [aiHint, setAiHint] = useState(null);
@@ -84,25 +85,136 @@ export default function QuizPage() {
       return;
     }
     if (sessionId) {
-      loadQuiz();
+      loadQuizData();
     }
   }, [session, sessionId]);
 
-  const loadQuiz = async () => {
+  const loadQuizData = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/student/quiz/load?sessionId=${sessionId}`);
-      const data = await response.json();
-      setCurrentQuestion(data.current_question);
-      setTotalQuestions(data.total_questions);
-      setScore(data.score);
-      setQuestionsAnswered(data.questions_answered);
-      setTimeLeft(data.time_left || 600);
+      // Try to get from sessionStorage first
+      let quizData = sessionStorage.getItem(`quiz_${sessionId}`);
+      
+      if (!quizData) {
+        quizData = localStorage.getItem(`quiz_${sessionId}`);
+      }
+      
+      if (quizData) {
+        const data = JSON.parse(quizData);
+        console.log('Loaded from storage:', data);
+        setAllQuestions(data.all_questions || []);
+        setCurrentQuestion(data.current_question || null);
+        setTotalQuestions(data.total_questions || 0);
+        setScore(data.score || 0);
+        setQuestionsAnswered(data.questions_answered || 0);
+        setTimeLeft(data.time_left || 600);
+      } else {
+        // Mock questions for testing if no data
+        console.log('No data in storage, using mock questions');
+        const mockQuestions = [
+          {
+            id: 0,
+            text: "What is a variable in programming?",
+            options: ["A container for storing data", "A type of function", "A loop structure", "An error handler"],
+            correct_answer: "A container for storing data",
+            explanation: "Variables store data in memory.",
+            type: "multiple_choice",
+            concept: "variables",
+            language: "python",
+            difficulty: 1
+          },
+          {
+            id: 1,
+            text: "Which of these is a valid variable name?",
+            options: ["2var", "_myVar", "my-var", "my var"],
+            correct_answer: "_myVar",
+            explanation: "Variable names can start with underscore.",
+            type: "multiple_choice",
+            concept: "variables",
+            language: "python",
+            difficulty: 1
+          },
+          {
+            id: 2,
+            text: "What does the = operator do?",
+            options: ["Comparison", "Assignment", "Equality", "Declaration"],
+            correct_answer: "Assignment",
+            explanation: "= assigns a value to a variable.",
+            type: "multiple_choice",
+            concept: "operators",
+            language: "python",
+            difficulty: 1
+          },
+          {
+            id: 3,
+            text: "What is the correct way to create a variable in Python?",
+            options: ["var x = 5", "x = 5", "int x = 5", "x := 5"],
+            correct_answer: "x = 5",
+            explanation: "Python uses simple assignment.",
+            type: "multiple_choice",
+            concept: "variables",
+            language: "python",
+            difficulty: 1
+          },
+          {
+            id: 4,
+            text: "Which data type is used for whole numbers?",
+            options: ["float", "string", "int", "boolean"],
+            correct_answer: "int",
+            explanation: "int stores integer values.",
+            type: "multiple_choice",
+            concept: "data_types",
+            language: "python",
+            difficulty: 1
+          }
+        ];
+        setAllQuestions(mockQuestions);
+        setCurrentQuestion(mockQuestions[0]);
+        setTotalQuestions(mockQuestions.length);
+        setQuestionsAnswered(0);
+        setScore(0);
+      }
     } catch (error) {
-      console.error('Failed to load quiz:', error);
+      console.error('Failed to load quiz data:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const saveProgress = () => {
+    if (!allQuestions.length) return;
+    const data = {
+      all_questions: allQuestions,
+      current_question: currentQuestion,
+      total_questions: totalQuestions,
+      score: score,
+      questions_answered: questionsAnswered,
+      time_left: timeLeft
+    };
+    sessionStorage.setItem(`quiz_${sessionId}`, JSON.stringify(data));
+    localStorage.setItem(`quiz_${sessionId}`, JSON.stringify(data));
+  };
+
+  useEffect(() => {
+    if (!loading && allQuestions.length > 0) {
+      saveProgress();
+    }
+  }, [currentQuestion, score, questionsAnswered]);
+
+  useEffect(() => {
+    if (quizCompleted || loading) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setQuizCompleted(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [quizCompleted, loading]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -124,7 +236,7 @@ export default function QuizPage() {
         })
       });
       const data = await response.json();
-      setAiHint(data.explanation);
+      setAiHint(data.explanation || "Think about the definition carefully.");
     } catch (error) {
       setAiHint("Think about the concept carefully. Review the basics and try again.");
     } finally {
@@ -133,49 +245,84 @@ export default function QuizPage() {
   };
 
   const handleAnswerSubmit = async () => {
-    if (!selectedAnswer && !codeAnswer) return;
+    if ((!selectedAnswer && !codeAnswer) || submitting) return;
     
     setSubmitting(true);
     setAiHint(null);
     
+    let isCorrect = false;
+    let explanation = '';
+    
+    if (currentQuestion && selectedAnswer) {
+      isCorrect = (selectedAnswer === currentQuestion.correct_answer);
+      explanation = currentQuestion.explanation || (isCorrect ? 'Correct!' : 'Incorrect. Review the material.');
+    }
+    
+    setFeedback({
+      isCorrect: isCorrect,
+      explanation: explanation
+    });
+    
+    const newScore = score + (isCorrect ? 1 : 0);
+    const newQuestionsAnswered = questionsAnswered + 1;
+    
+    setScore(newScore);
+    setQuestionsAnswered(newQuestionsAnswered);
+    
+    const quizComplete = newQuestionsAnswered >= totalQuestions;
+    
+    if (quizComplete) {
+      setQuizCompleted(true);
+      setSubmitting(false);
+      
+      // Save final results to database
+      try {
+        await fetch('/api/student/quiz/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            questionIndex: questionsAnswered,
+            answer: selectedAnswer,
+            codeSubmission: codeAnswer,
+            allQuestions: allQuestions,
+            quizCompleted: true,
+            finalScore: newScore,
+            totalQuestions: totalQuestions
+          })
+        });
+      } catch (error) {
+        console.error('Failed to save results:', error);
+      }
+    } else {
+      const nextIndex = questionsAnswered + 1;
+      const nextQ = allQuestions[nextIndex];
+      
+      setTimeout(() => {
+        setCurrentQuestion(nextQ);
+        setSelectedAnswer(null);
+        setCodeAnswer('');
+        setFeedback(null);
+        setSubmitting(false);
+      }, 2000);
+    }
+    
+    // Save response to database
     try {
-      const response = await fetch('/api/student/quiz/submit', {
+      await fetch('/api/student/quiz/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: sessionId,
-          questionId: currentQuestion?.id,
+          questionIndex: questionsAnswered,
           answer: selectedAnswer,
-          codeSubmission: codeAnswer
+          codeSubmission: codeAnswer,
+          allQuestions: allQuestions,
+          isCorrect: isCorrect
         })
       });
-      
-      const result = await response.json();
-      
-      setFeedback({
-        isCorrect: result.is_correct,
-        explanation: result.explanation
-      });
-      
-      if (result.is_correct) setScore(prev => prev + 1);
-      setQuestionsAnswered(prev => prev + 1);
-      
-      if (result.quiz_completed) {
-        setQuizCompleted(true);
-        setSubmitting(false);
-      } else if (result.next_question) {
-        setTimeout(() => {
-          setCurrentQuestion(result.next_question);
-          setSelectedAnswer(null);
-          setCodeAnswer('');
-          setFeedback(null);
-          setSubmitting(false);
-        }, 2000);
-      } else {
-        setSubmitting(false);
-      }
     } catch (error) {
-      setSubmitting(false);
+      console.error('Failed to save response:', error);
     }
   };
 
@@ -202,6 +349,10 @@ export default function QuizPage() {
         </div>
       </div>
     );
+  }
+
+  if (!currentQuestion) {
+    return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>;
   }
 
   return (
@@ -274,5 +425,3 @@ export default function QuizPage() {
     </div>
   );
 }
-
-import { LayoutDashboard, Target, BookOpen } from 'lucide-react';
