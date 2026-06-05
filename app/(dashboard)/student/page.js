@@ -9,7 +9,8 @@ import {
   Menu, User, LogOut, Bell, Sparkles, ChevronRight,
   LayoutDashboard, BarChart3, CheckCircle, AlertCircle,
   TrendingDown, Calendar, Activity, Brain, Loader2,
-  Star, Zap, Flame, Medal, PieChart, LineChart
+  Star, Zap, Flame, Medal, PieChart, LineChart,
+  Bot, Send, MessageCircle, X, Minimize2, Maximize2
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -60,7 +61,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// Simple progress bar component
+// Progress Bar Component
 const ProgressBar = ({ value, max = 100, color = 'blue' }) => {
   const percentage = Math.min(100, (value / max) * 100);
   const colorClass = {
@@ -78,10 +79,180 @@ const ProgressBar = ({ value, max = 100, color = 'blue' }) => {
   );
 };
 
+// AI Chat Component
+const AIChat = ({ isOpen, onClose, studentId, studentName, performanceData }) => {
+  const [messages, setMessages] = useState([
+    { 
+      role: 'assistant', 
+      content: `Hi ${studentName || 'there'}! I'm your AI learning assistant. I can help you with:
+• Understanding programming concepts
+• Explaining your knowledge gaps
+• Recommending study strategies
+• Answering coding questions
+
+What would you like to learn today?`,
+      timestamp: new Date()
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = { role: 'user', content: input, timestamp: new Date() };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: input,
+          studentId: studentId,
+          context: {
+            performance: performanceData,
+            recentActivity: performanceData?.recentActivity?.slice(0, 5),
+            gaps: performanceData?.primaryGapsCount
+          }
+        })
+      });
+      
+      const data = await response.json();
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.reply || "I'm sorry, I couldn't process that. Please try again.",
+        timestamp: new Date()
+      }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "I'm having trouble connecting. Please try again in a moment.",
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  if (isMinimized) {
+    return (
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          onClick={() => setIsMinimized(false)}
+          className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-full p-3 shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+        >
+          <Bot size={20} className="text-white" />
+          <span className="text-white text-sm font-medium">AI Assistant</span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 w-96 h-[500px] bg-[#0A1628] border border-white/20 rounded-xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl">
+      {/* Chat Header */}
+      <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 p-3 border-b border-white/10 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="p-1 rounded-lg bg-purple-500/20">
+            <Bot size={16} className="text-purple-400" />
+          </div>
+          <span className="text-sm font-medium text-white">AI Learning Assistant</span>
+          <span className="text-xs text-green-400 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+            Online
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setIsMinimized(true)} className="p-1 hover:bg-white/10 rounded transition">
+            <Minimize2 size={14} className="text-gray-400" />
+          </button>
+          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded transition">
+            <X size={14} className="text-gray-400" />
+          </button>
+        </div>
+      </div>
+
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-3 rounded-lg ${
+              msg.role === 'user' 
+                ? 'bg-blue-500/20 border border-blue-500/30 text-white' 
+                : 'bg-white/5 border border-white/10 text-gray-300'
+            }`}>
+              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {msg.timestamp?.toLocaleTimeString()}
+              </p>
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+              <Loader2 size={16} className="animate-spin text-purple-400" />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Chat Input */}
+      <div className="p-3 border-t border-white/10">
+        <div className="flex gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Ask me anything about programming or your progress..."
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 resize-none"
+            rows={2}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={isLoading || !input.trim()}
+            className="px-3 py-2 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition disabled:opacity-50"
+          >
+            {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Ask about concepts, get help with coding, or understand your learning gaps
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export default function StudentDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     performance: {
       totalQuizzes: 0,
@@ -140,7 +311,7 @@ export default function StudentDashboard() {
       const recResponse = await fetch(`/api/student/recommendations?studentId=${session.user.id}`);
       const recData = await recResponse.json();
       
-      setDashboardData({
+      const newDashboardData = {
         performance: perfData.performance || {
           totalQuizzes: 0,
           completedQuizzes: 0,
@@ -158,10 +329,12 @@ export default function StudentDashboard() {
         primaryGapsCount: gapsData.primary_gaps?.length || 0,
         recommendationsCount: recData.recommendations?.length || 0,
         aiInsights: null
-      });
+      };
+      
+      setDashboardData(newDashboardData);
       
       // Generate AI insights
-      generateAIInsights();
+      generateAIInsights(newDashboardData);
       
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -170,7 +343,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const generateAIInsights = async () => {
+  const generateAIInsights = async (data) => {
     setGeneratingInsights(true);
     try {
       const response = await fetch('/api/ai/dashboard-insights', {
@@ -178,13 +351,13 @@ export default function StudentDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           studentId: session.user.id,
-          performance: dashboardData.performance,
-          conceptMastery: dashboardData.conceptMastery,
-          gapsCount: dashboardData.primaryGapsCount
+          performance: data.performance,
+          conceptMastery: data.conceptMastery,
+          gapsCount: data.primaryGapsCount
         })
       });
-      const data = await response.json();
-      setDashboardData(prev => ({ ...prev, aiInsights: data.insights }));
+      const responseData = await response.json();
+      setDashboardData(prev => ({ ...prev, aiInsights: responseData.insights }));
     } catch (error) {
       console.error('Failed to generate AI insights:', error);
     } finally {
@@ -207,9 +380,9 @@ export default function StudentDashboard() {
   };
 
   const getMasteryColor = (mastery) => {
-    if (mastery >= 80) return 'bg-green-500';
-    if (mastery >= 60) return 'bg-yellow-500';
-    return 'bg-red-500';
+    if (mastery >= 80) return 'green';
+    if (mastery >= 60) return 'yellow';
+    return 'red';
   };
 
   if (status === 'loading' || loading) {
@@ -241,7 +414,7 @@ export default function StudentDashboard() {
         </div>
 
         <div className="p-4 md:p-6">
-          {/* Welcome Section */}
+          {/* Welcome Section with AI Chat Button */}
           <div className="mb-6 flex flex-wrap justify-between items-center">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">
@@ -253,12 +426,21 @@ export default function StudentDashboard() {
                   : `You've completed ${performance.completedQuizzes} quizzes so far`}
               </p>
             </div>
-            <div className={`mt-3 sm:mt-0 px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${getPerformanceColor(performanceTier)}`}>
-              {performanceTier === 'excellent' && <Medal size={16} />}
-              {performanceTier === 'average' && <TrendingUp size={16} />}
-              {performanceTier === 'beginner' && <Target size={16} />}
-              {performanceTier === 'excellent' ? 'Excellent Performance' : 
-               performanceTier === 'average' ? 'Average Performance' : 'Needs Improvement'}
+            <div className="flex gap-2 mt-3 sm:mt-0">
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm font-medium flex items-center gap-2"
+              >
+                <Bot size={16} />
+                Ask AI Assistant
+              </button>
+              <div className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${getPerformanceColor(performanceTier)}`}>
+                {performanceTier === 'excellent' && <Medal size={16} />}
+                {performanceTier === 'average' && <TrendingUp size={16} />}
+                {performanceTier === 'beginner' && <Target size={16} />}
+                {performanceTier === 'excellent' ? 'Excellent' : 
+                 performanceTier === 'average' ? 'Average' : 'Needs Improvement'}
+              </div>
             </div>
           </div>
 
@@ -329,6 +511,9 @@ export default function StudentDashboard() {
                       {aiInsights?.recommendation && (
                         <p className="text-sm text-blue-400 mt-2">💡 {aiInsights.recommendation}</p>
                       )}
+                      {aiInsights?.focusArea && (
+                        <p className="text-xs text-gray-400 mt-2">🎯 Focus: {aiInsights.focusArea}</p>
+                      )}
                     </>
                   )}
                 </div>
@@ -336,7 +521,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* Concept Mastery Section with Visualizations */}
+          {/* Concept Mastery Section */}
           {conceptMastery.length > 0 && (
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 mb-6">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -354,7 +539,7 @@ export default function StudentDashboard() {
                       </span>
                       <span className={getScoreColor(concept.mastery)}>{Math.round(concept.mastery)}%</span>
                     </div>
-                    <ProgressBar value={concept.mastery} color={getMasteryColor(concept.mastery).replace('bg-', '')} />
+                    <ProgressBar value={concept.mastery} color={getMasteryColor(concept.mastery)} />
                     <p className="text-xs text-gray-500 mt-1">{concept.totalQuestions} questions • {concept.correctAnswers} correct</p>
                   </div>
                 ))}
@@ -364,7 +549,7 @@ export default function StudentDashboard() {
 
           {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Weekly Progress Chart */}
+            {/* Weekly Progress */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5">
               <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                 <LineChart size={18} className="text-blue-400" />
@@ -378,7 +563,7 @@ export default function StudentDashboard() {
                         <span className="text-gray-400">Week of {new Date(week.weekStart).toLocaleDateString()}</span>
                         <span className={getScoreColor(week.averageScore)}>{Math.round(week.averageScore)}%</span>
                       </div>
-                      <ProgressBar value={week.averageScore} color={getMasteryColor(week.averageScore).replace('bg-', '')} />
+                      <ProgressBar value={week.averageScore} color={getMasteryColor(week.averageScore)} />
                       <p className="text-xs text-gray-500 mt-1">{week.quizzesCompleted} quizzes completed</p>
                     </div>
                   ))}
@@ -406,7 +591,7 @@ export default function StudentDashboard() {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm text-white capitalize">{activity.concept?.replace(/_/g, ' ')}</p>
-                        <p className="text-xs text-gray-500">{activity.question}</p>
+                        <p className="text-xs text-gray-500">{activity.question?.substring(0, 60)}...</p>
                         <p className="text-xs text-gray-600 mt-1">{new Date(activity.timestamp).toLocaleDateString()}</p>
                       </div>
                       <span className={`text-xs ${activity.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
@@ -436,12 +621,24 @@ export default function StudentDashboard() {
                 <Link href="/student/quizzes"><button className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium">Take a Quiz</button></Link>
                 <Link href="/student/recommendations"><button className="p-3 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm font-medium">View Recommendations</button></Link>
                 <Link href="/student/gaps"><button className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition text-sm font-medium">Review Knowledge Gaps</button></Link>
-                <Link href="/student/profile"><button className="p-3 rounded-lg bg-gray-500/20 border border-gray-500/30 text-gray-400 hover:bg-gray-500/30 transition text-sm font-medium">Update Profile</button></Link>
+                <button onClick={() => setIsChatOpen(true)} className="p-3 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm font-medium flex items-center justify-center gap-2">
+                  <Bot size={14} />
+                  Ask AI Assistant
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* AI Chat Component */}
+      <AIChat 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        studentId={session?.user?.id}
+        studentName={session?.user?.name?.split(' ')[0]}
+        performanceData={dashboardData}
+      />
     </div>
   );
 }
