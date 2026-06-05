@@ -11,43 +11,42 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get('studentId');
-    const limit = parseInt(searchParams.get('limit') || '10');
 
     if (!studentId) {
       return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
     }
 
-    // Get saved gap analysis
-    const gapAnalysis = await query(`
-      SELECT concept, analysis_data, created_at
-      FROM gap_analysis
-      WHERE student_id = $1
-      ORDER BY created_at DESC
-    `, [studentId]);
-
-    // Get recent responses
+    // Get student's performance data
     const responses = await query(`
       SELECT r.*, qs.concept, qs.language
       FROM responses r
       JOIN quiz_sessions qs ON r.session_id = qs.session_id
-      WHERE r.student_id = $1
+      WHERE r.student_id = $1 AND r.is_correct = false
       ORDER BY r.timestamp DESC
-      LIMIT 50
+      LIMIT 30
     `, [studentId]);
 
-    if (responses.rows.length === 0 && gapAnalysis.rows.length === 0) {
+    if (responses.rows.length === 0) {
       return NextResponse.json({ 
         recommendations: [],
-        message: "Complete a quiz to get personalized AI recommendations"
+        message: "Complete quizzes to get AI-powered recommendations"
       });
     }
 
-    // Generate AI recommendations based on stored analysis and recent performance
-    const recommendations = await generateAIRecommendationsFromData(studentId, responses.rows, gapAnalysis.rows);
+    // Get stored gap analysis
+    const storedAnalysis = await query(`
+      SELECT analysis_data
+      FROM gap_analysis
+      WHERE student_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [studentId]);
+
+    // Generate AI recommendations
+    const recommendations = await generateAIRecommendations(studentId, responses.rows, storedAnalysis.rows[0]?.analysis_data);
 
     return NextResponse.json({
-      recommendations: recommendations.slice(0, limit),
-      total: recommendations.length,
+      recommendations: recommendations,
       source: 'mistral-ai',
       generated_at: new Date().toISOString()
     });
@@ -57,45 +56,32 @@ export async function GET(request) {
   }
 }
 
-async function generateAIRecommendationsFromData(studentId, responses, gapAnalysis) {
-  const incorrectResponses = responses.filter(r => !r.is_correct);
-  const conceptsWithIssues = {};
+async function generateAIRecommendations(studentId, incorrectResponses, storedAnalysis) {
+  const conceptsNeedingHelp = [...new Set(incorrectResponses.map(r => r.concept))];
   
-  for (const resp of incorrectResponses) {
-    const concept = resp.concept || 'general';
-    if (!conceptsWithIssues[concept]) {
-      conceptsWithIssues[concept] = { count: 0, errors: [] };
-    }
-    conceptsWithIssues[concept].count++;
-    if (resp.selected_answer) {
-      conceptsWithIssues[concept].errors.push(resp.selected_answer);
-    }
-  }
+  const prompt = `Generate personalized learning recommendations for this student.
 
-  const strugglingConcepts = Object.entries(conceptsWithIssues)
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5)
-    .map(([concept, data]) => ({ concept, errorCount: data.count, sampleErrors: data.errors.slice(0, 3) }));
+STUDENT: ${studentId}
+CONCEPTS STRUGGLING WITH: ${conceptsNeedingHelp.join(', ')}
+INCORRECT RESPONSES:
+${JSON.stringify(incorrectResponses.slice(0, 10).map(r => ({
+  concept: r.concept,
+  question: r.question_text,
+  their_answer: r.selected_answer
+})), null, 2)}
 
-  const prompt = `Generate personalized learning recommendations for a programming student.
+${storedAnalysis ? `PREVIOUS ANALYSIS: ${JSON.stringify(storedAnalysis)}` : ''}
 
-STRUGGLING CONCEPTS:
-${JSON.stringify(strugglingConcepts, null, 2)}
-
-RECENT INCORRECT ANSWERS:
-${JSON.stringify(incorrectResponses.slice(0, 10), null, 2)}
-
-Return ONLY a JSON array of recommendations. Each recommendation must have:
-- title: specific, descriptive title
+Return ONLY valid JSON array. Each recommendation must have:
+- title: specific, actionable title
 - type: "video", "article", "exercise", "interactive", "course"
-- url: REAL working URL (YouTube, freeCodeCamp, MDN, W3Schools, Coursera, Udemy free, etc.)
-- description: why this helps their specific struggle
-- concept: which concept this addresses
+- url: REAL working URL (YouTube, freeCodeCamp, MDN, W3Schools, Coursera, edX, Khan Academy)
+- description: why this specific resource helps their specific struggle
+- concept: which concept it addresses
 - priority: "high", "medium", "low"
 - estimated_duration_minutes: number
 
-Example:
-[{"title": "Python Variables Explained", "type": "video", "url": "https://www.youtube.com/watch?v=example", "description": "Clear explanation of variable assignment", "concept": "variables", "priority": "high", "estimated_duration_minutes": 15}]`;
+Generate 5-8 personalized recommendations.`;
 
   try {
     const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -109,12 +95,12 @@ Example:
         messages: [
           {
             role: 'system',
-            content: 'You are a learning resource curator. Return ONLY valid JSON array with real, working educational URLs.'
+            content: 'You are a learning resource curator. Return ONLY valid JSON array. Use real, working educational URLs. No markdown.'
           },
           { role: 'user', content: prompt }
         ],
         temperature: 0.4,
-        max_tokens: 2500
+        max_tokens: 3000
       })
     });
 
@@ -129,28 +115,5 @@ Example:
     console.error('AI recommendation generation failed:', error);
   }
 
-  // Generate recommendations based on actual struggling concepts
-  const recommendations = [];
-  for (const item of strugglingConcepts) {
-    recommendations.push({
-      title: `Master ${item.concept} - Complete Tutorial`,
-      type: "tutorial",
-      url: `https://www.w3schools.com/python/python_${item.concept.toLowerCase()}.asp`,
-      description: `You struggled with ${item.concept} ${item.errorCount} times. This tutorial covers the fundamentals.`,
-      concept: item.concept,
-      priority: "high",
-      estimated_duration_minutes: 30
-    });
-    recommendations.push({
-      title: `${item.concept} Practice Exercises`,
-      type: "exercise",
-      url: `/student/quizzes?concept=${item.concept}`,
-      description: `Practice more ${item.concept} questions to improve.`,
-      concept: item.concept,
-      priority: "high",
-      estimated_duration_minutes: 45
-    });
-  }
-  
-  return recommendations;
+  throw new Error('AI recommendation generation failed');
 }

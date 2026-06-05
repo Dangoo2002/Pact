@@ -11,28 +11,22 @@ export async function POST(request) {
 
     const { sessionId, studentId, concept, language, questions, answers, score, totalQuestions } = await request.json();
 
-    // Save each answer to database
-    for (let i = 0; i < answers.length; i++) {
-      const answer = answers[i];
+    // Save all answers if not already saved
+    for (const answer of answers) {
       const question = questions.find(q => q.id === answer.questionId);
-      
-      await query(`
-        INSERT INTO responses (student_id, session_id, question_text, is_correct, selected_answer, concept, language, timestamp)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      `, [studentId, sessionId, answer.question, answer.isCorrect, answer.answer, concept, language]);
+      if (question) {
+        await query(`
+          INSERT INTO responses (student_id, session_id, question_text, is_correct, selected_answer, concept, language, timestamp)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+          ON CONFLICT DO NOTHING
+        `, [studentId, sessionId, question.text, answer.isCorrect, answer.answer, concept, language]);
+      }
     }
 
-    // Update quiz session
-    await query(`
-      UPDATE quiz_sessions 
-      SET status = 'completed', completed_at = NOW(), score = $1
-      WHERE session_id = $2
-    `, [score, sessionId]);
+    // Generate AI analysis of all responses
+    const analysis = await generateComprehensiveAnalysis(studentId, concept, answers, score, totalQuestions);
 
-    // Generate AI analysis and recommendations
-    const analysis = await generateAIAnalysisAndRecommendations(studentId, concept, language, questions, answers, score, totalQuestions);
-
-    // Store analysis results
+    // Store analysis
     await query(`
       INSERT INTO gap_analysis (student_id, concept, analysis_data, created_at)
       VALUES ($1, $2, $3, NOW())
@@ -43,7 +37,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       analysis: analysis,
-      message: "Quiz saved and analysis complete"
+      message: "AI analysis complete"
     });
   } catch (error) {
     console.error('Save and analyze error:', error);
@@ -51,52 +45,52 @@ export async function POST(request) {
   }
 }
 
-async function generateAIAnalysisAndRecommendations(studentId, concept, language, questions, answers, score, totalQuestions) {
+async function generateComprehensiveAnalysis(studentId, concept, answers, score, totalQuestions) {
   const accuracy = (score / totalQuestions) * 100;
-  const incorrectAnswers = answers.filter(a => !a.isCorrect);
   
-  const prompt = `You are an expert programming educator. Analyze this student's quiz performance and provide detailed insights.
+  const prompt = `Perform a comprehensive educational analysis of this student's performance.
 
+STUDENT: ${studentId}
 CONCEPT: ${concept}
-LANGUAGE: ${language}
-SCORE: ${score}/${totalQuestions} (${accuracy}%)
-QUESTIONS AND ANSWERS:
+ACCURACY: ${accuracy}%
+SCORE: ${score}/${totalQuestions}
+
+STUDENT'S ANSWERS:
 ${JSON.stringify(answers.map(a => ({
   question: a.question,
-  student_answer: a.answer,
-  correct_answer: a.correct_answer,
-  was_correct: a.isCorrect
+  their_answer: a.answer,
+  was_correct: a.isCorrect,
+  correct_answer: a.correct_answer
 })), null, 2)}
 
-Based on the above, provide a comprehensive analysis in the following JSON format (ONLY JSON, no other text):
-
+Return ONLY valid JSON with this exact structure (NO other text):
 {
-  "performance_summary": {
-    "accuracy": ${accuracy},
-    "strengths": ["list of what they did well"],
-    "weaknesses": ["list of specific gaps"],
-    "mastery_level": ${accuracy >= 80 ? "advanced" : accuracy >= 60 ? "intermediate" : "beginner"}
+  "overall_assessment": {
+    "mastery_level": "beginner/intermediate/advanced",
+    "strengths": ["detailed strength 1", "detailed strength 2"],
+    "weaknesses": ["detailed weakness 1", "detailed weakness 2"],
+    "accuracy_percentage": ${accuracy},
+    "recommended_difficulty": "easy/medium/hard"
   },
   "knowledge_gaps": [
     {
-      "concept": "specific sub-concept they struggled with",
+      "concept": "specific sub-concept",
+      "description": "detailed description of the gap",
       "severity": "high/medium/low",
-      "description": "detailed explanation of the gap",
-      "specific_errors": ["error pattern 1", "error pattern 2"]
+      "evidence": ["specific error pattern from answers"]
     }
   ],
-  "recommendations": [
+  "personalized_recommendations": [
     {
-      "title": "resource title",
+      "title": "specific resource title",
       "type": "video/article/exercise/course",
-      "url": "real valid URL (YouTube, freeCodeCamp, MDN, W3Schools, Coursera, etc.)",
-      "description": "why this resource helps",
-      "priority": "high/medium/low",
-      "estimated_duration_minutes": number
+      "url": "real working URL from YouTube, freeCodeCamp, MDN, Coursera, or similar",
+      "description": "why this helps their specific gap",
+      "priority": "high/medium/low"
     }
   ],
-  "next_steps": ["step 1", "step 2", "step 3"],
-  "study_plan": "personalized study plan paragraph"
+  "next_steps": ["actionable step 1", "actionable step 2", "actionable step 3"],
+  "study_plan": "detailed 1-2 sentence personalized study plan"
 }`;
 
   try {
@@ -111,7 +105,7 @@ Based on the above, provide a comprehensive analysis in the following JSON forma
         messages: [
           {
             role: 'system',
-            content: 'You are an expert programming educator and learning analyst. Return ONLY valid JSON. Use real, working URLs from legitimate learning platforms.'
+            content: 'You are an expert educational analyst. Return ONLY valid JSON. Use real, working educational URLs. No markdown, no extra text.'
           },
           { role: 'user', content: prompt }
         ],
@@ -125,83 +119,11 @@ Based on the above, provide a comprehensive analysis in the following JSON forma
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     
     if (jsonMatch) {
-      const analysis = JSON.parse(jsonMatch[0]);
-      // Enhance recommendations with real URLs if missing
-      for (const rec of analysis.recommendations || []) {
-        if (!rec.url || rec.url === '#') {
-          rec.url = getResourceUrl(concept, rec.title, rec.type);
-        }
-      }
-      return analysis;
+      return JSON.parse(jsonMatch[0]);
     }
   } catch (error) {
     console.error('AI analysis failed:', error);
   }
 
-  // Fallback analysis based on actual data
-  return generateFallbackAnalysis(concept, language, answers, score, totalQuestions);
-}
-
-function getResourceUrl(concept, title, type) {
-  const encodedConcept = encodeURIComponent(concept.toLowerCase());
-  if (type === 'video') {
-    return `https://www.youtube.com/results?search_query=${encodedConcept}+programming+tutorial`;
-  } else if (type === 'article') {
-    return `https://developer.mozilla.org/en-US/search?q=${encodedConcept}`;
-  } else if (type === 'exercise') {
-    return `https://www.w3schools.com/python/python_${concept.toLowerCase()}.asp`;
-  }
-  return `https://www.google.com/search?q=learn+${encodedConcept}+programming`;
-}
-
-function generateFallbackAnalysis(concept, language, answers, score, totalQuestions) {
-  const accuracy = (score / totalQuestions) * 100;
-  const incorrectConcepts = answers.filter(a => !a.isCorrect).map(a => a.question?.split(' ').slice(0, 3).join(' ') || concept);
-  
-  return {
-    performance_summary: {
-      accuracy: accuracy,
-      strengths: score >= 3 ? ["Showed good understanding of basic concepts"] : ["Attempted all questions"],
-      weaknesses: [`Struggled with ${incorrectConcepts.slice(0, 3).join(', ')}`],
-      mastery_level: accuracy >= 80 ? "advanced" : accuracy >= 60 ? "intermediate" : "beginner"
-    },
-    knowledge_gaps: [{
-      concept: concept,
-      severity: accuracy < 70 ? "high" : "medium",
-      description: `Need to review ${concept} fundamentals. Accuracy was ${accuracy}%.`,
-      specific_errors: answers.filter(a => !a.isCorrect).map(a => a.answer?.substring(0, 100) || "Incorrect answer")
-    }],
-    recommendations: [
-      {
-        title: `${concept} Tutorial for Beginners`,
-        type: "tutorial",
-        url: `https://www.w3schools.com/python/python_${concept.toLowerCase()}.asp`,
-        description: `Learn the fundamentals of ${concept} with examples.`,
-        priority: "high",
-        estimated_duration_minutes: 30
-      },
-      {
-        title: `${concept} Practice Problems`,
-        type: "exercise",
-        url: `/student/quizzes?concept=${concept}`,
-        description: `Practice more ${concept} questions.`,
-        priority: "high",
-        estimated_duration_minutes: 45
-      },
-      {
-        title: `Master ${concept} in ${language}`,
-        type: "video",
-        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(concept)}+${language}+tutorial`,
-        description: `Watch video tutorials on ${concept}.`,
-        priority: "medium",
-        estimated_duration_minutes: 20
-      }
-    ],
-    next_steps: [
-      "Review the incorrect answers and understand the correct solutions",
-      "Practice more questions on the same topic",
-      "Watch recommended video tutorials"
-    ],
-    study_plan: `Focus on understanding ${concept} fundamentals. Start with the recommended tutorial, then practice with exercises.`
-  };
+  throw new Error('AI analysis generation failed');
 }

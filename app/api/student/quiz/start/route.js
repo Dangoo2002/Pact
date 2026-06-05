@@ -11,21 +11,45 @@ export async function POST(request) {
 
     const { studentId, concept, language } = await request.json();
 
-    console.log('Starting quiz for:', { studentId, concept, language });
+    // Get student's previous performance for personalization
+    const previousResponses = await query(`
+      SELECT r.is_correct, r.question_text, qs.concept
+      FROM responses r
+      JOIN quiz_sessions qs ON r.session_id = qs.session_id
+      WHERE r.student_id = $1 AND qs.concept = $2
+      ORDER BY r.timestamp DESC
+      LIMIT 15
+    `, [studentId, concept]);
 
-    // Generate questions based on concept
-    const questions = getQuestionsForConcept(concept, language);
+    const totalPrevious = previousResponses.rows.length;
+    const correctPrevious = previousResponses.rows.filter(r => r.is_correct).length;
+    const accuracy = totalPrevious > 0 ? (correctPrevious / totalPrevious) * 100 : 50;
+    
+    // Determine adaptive difficulty
+    let adaptiveDifficulty = 2; // medium default
+    if (accuracy >= 80) adaptiveDifficulty = 3; // hard
+    else if (accuracy >= 60) adaptiveDifficulty = 2; // medium
+    else if (accuracy >= 40) adaptiveDifficulty = 1; // easy
+    else adaptiveDifficulty = 1; // very easy
+
+    // Identify weak topics from previous responses
+    const weakTopics = previousResponses.rows
+      .filter(r => !r.is_correct)
+      .map(r => r.question_text?.substring(0, 50) || concept)
+      .slice(0, 5);
+
+    // Generate 5 unique adaptive questions using AI only
+    const questions = await generateAIQuestions(concept, language, adaptiveDifficulty, weakTopics, studentId);
 
     // Create session
     const sessionId = `session_${Date.now()}_${studentId}`;
     const studentIdStr = String(studentId);
     
     await query(`
-      INSERT INTO quiz_sessions (session_id, student_id, concept, language, total_questions, started_at, status, current_question_index, score)
-      VALUES ($1, $2, $3, $4, $5, NOW(), 'active', $6, $7)
-    `, [sessionId, studentIdStr, concept, language, questions.length, 0, 0]);
+      INSERT INTO quiz_sessions (session_id, student_id, concept, language, total_questions, started_at, status, current_question_index, score, difficulty_level, weak_focus)
+      VALUES ($1, $2, $3, $4, $5, NOW(), 'active', $6, $7, $8, $9)
+    `, [sessionId, studentIdStr, concept, language, questions.length, 0, 0, adaptiveDifficulty, JSON.stringify(weakTopics)]);
 
-    // Format questions for frontend
     const formattedQuestions = questions.map((q, idx) => ({
       id: idx,
       text: q.question_text,
@@ -35,7 +59,8 @@ export async function POST(request) {
       type: 'multiple_choice',
       concept: concept,
       language: language,
-      difficulty: q.difficulty
+      difficulty: q.difficulty,
+      topic: q.topic
     }));
 
     return NextResponse.json({
@@ -43,249 +68,82 @@ export async function POST(request) {
       current_question: formattedQuestions[0],
       total_questions: formattedQuestions.length,
       all_questions: formattedQuestions,
-      time_limit: 600
+      time_limit: 600,
+      adaptive_level: adaptiveDifficulty,
+      message: `Quiz generated at ${adaptiveDifficulty === 3 ? 'advanced' : adaptiveDifficulty === 2 ? 'intermediate' : 'beginner'} level`
     });
   } catch (error) {
     console.error('Start quiz error:', error);
-    return NextResponse.json({ 
-      error: 'Failed to start quiz: ' + error.message 
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to start quiz: ' + error.message }, { status: 500 });
   }
 }
 
-function getQuestionsForConcept(concept, language) {
-  // Common questions for all concepts
-  const questionBank = {
-    variables: [
-      {
-        question_text: `What is a variable in ${language} programming?`,
-        options: ["A container for storing data", "A type of function", "A loop structure", "An error handler"],
-        correct_answer: "A container for storing data",
-        explanation: "Variables store data in memory that can be referenced and manipulated.",
-        difficulty: 1
-      },
-      {
-        question_text: `Which of these is a valid variable name in ${language}?`,
-        options: ["2var", "_myVar", "my-var", "my var"],
-        correct_answer: "_myVar",
-        explanation: "Variable names can start with underscore or letter, not numbers, and cannot contain spaces or hyphens.",
-        difficulty: 1
-      },
-      {
-        question_text: `What does the = operator do in ${language}?`,
-        options: ["Comparison", "Assignment", "Equality check", "Declaration"],
-        correct_answer: "Assignment",
-        explanation: "= assigns the value on the right to the variable on the left.",
-        difficulty: 1
-      },
-      {
-        question_text: `How do you declare a variable in ${language}?`,
-        options: ["var x = 5", "x = 5", "int x = 5", "let x = 5"],
-        correct_answer: "x = 5",
-        explanation: "In Python, you simply assign a value to create a variable.",
-        difficulty: 1
-      },
-      {
-        question_text: `What is variable scope?`,
-        options: ["Where a variable can be accessed", "The value of a variable", "The type of a variable", "The name of a variable"],
-        correct_answer: "Where a variable can be accessed",
-        explanation: "Scope determines the visibility and lifetime of a variable.",
-        difficulty: 2
-      }
-    ],
-    data_types: [
-      {
-        question_text: `Which of these is a primitive data type in ${language}?`,
-        options: ["Integer", "Array", "Object", "List"],
-        correct_answer: "Integer",
-        explanation: "Integer is a primitive data type that stores whole numbers.",
-        difficulty: 1
-      },
-      {
-        question_text: `What data type would you use for whole numbers?`,
-        options: ["float", "string", "int", "boolean"],
-        correct_answer: "int",
-        explanation: "int stores integer values without decimal points.",
-        difficulty: 1
-      },
-      {
-        question_text: `What data type would you use for decimal numbers?`,
-        options: ["int", "float", "string", "char"],
-        correct_answer: "float",
-        explanation: "float stores numbers with decimal points.",
-        difficulty: 1
-      },
-      {
-        question_text: `What data type stores true/false values?`,
-        options: ["int", "float", "string", "boolean"],
-        correct_answer: "boolean",
-        explanation: "boolean stores True or False values.",
-        difficulty: 1
-      },
-      {
-        question_text: `What function do you use to check a variable's type in ${language}?`,
-        options: ["checkType()", "typeof()", "type()", "getType()"],
-        correct_answer: "type()",
-        explanation: "type() returns the data type of a variable.",
-        difficulty: 2
-      }
-    ],
-    loops: [
-      {
-        question_text: `How many times does 'for i in range(5):' run?`,
-        options: ["4", "5", "6", "Infinite"],
-        correct_answer: "5",
-        explanation: "range(5) generates 0,1,2,3,4 - 5 iterations.",
-        difficulty: 1
-      },
-      {
-        question_text: `What is the purpose of a loop?`,
-        options: ["To execute code repeatedly", "To define functions", "To store data", "To handle errors"],
-        correct_answer: "To execute code repeatedly",
-        explanation: "Loops allow you to run the same code multiple times.",
-        difficulty: 1
-      },
-      {
-        question_text: `Which loop is guaranteed to run at least once?`,
-        options: ["for loop", "while loop", "do-while loop", "foreach loop"],
-        correct_answer: "do-while loop",
-        explanation: "do-while checks condition after executing the code block.",
-        difficulty: 2
-      },
-      {
-        question_text: `What is an infinite loop?`,
-        options: ["A loop that never ends", "A loop with no code", "A very fast loop", "A loop with 1 iteration"],
-        correct_answer: "A loop that never ends",
-        explanation: "Infinite loops occur when the termination condition is never met.",
-        difficulty: 2
-      },
-      {
-        question_text: `What keyword is used to exit a loop early?`,
-        options: ["exit", "stop", "break", "return"],
-        correct_answer: "break",
-        explanation: "break immediately terminates the loop.",
-        difficulty: 2
-      }
-    ],
-    conditionals: [
-      {
-        question_text: `What does an if statement do?`,
-        options: ["Executes code conditionally", "Creates a loop", "Declares a variable", "Imports a module"],
-        correct_answer: "Executes code conditionally",
-        explanation: "if statements run code only when a condition is true.",
-        difficulty: 1
-      },
-      {
-        question_text: `What does 'elif' stand for?`,
-        options: ["Else if", "Else in if", "Element if", "Escape if"],
-        correct_answer: "Else if",
-        explanation: "elif is short for 'else if' in Python.",
-        difficulty: 1
-      },
-      {
-        question_text: `What is the correct syntax for an if statement in ${language}?`,
-        options: ["if x == 5: then", "if x == 5 {", "if x == 5:", "if (x == 5) then"],
-        correct_answer: "if x == 5:",
-        explanation: "Python uses colon and indentation for if statements.",
-        difficulty: 1
-      },
-      {
-        question_text: `What does 'else' do?`,
-        options: ["Runs when if is false", "Runs when if is true", "Always runs", "Creates a loop"],
-        correct_answer: "Runs when if is false",
-        explanation: "else executes when the if condition is false.",
-        difficulty: 1
-      }
-    ],
-    functions: [
-      {
-        question_text: `What keyword defines a function in ${language}?`,
-        options: ["function", "def", "func", "define"],
-        correct_answer: "def",
-        explanation: "Python uses 'def' to define functions.",
-        difficulty: 1
-      },
-      {
-        question_text: `What returns a value from a function?`,
-        options: ["break", "continue", "return", "exit"],
-        correct_answer: "return",
-        explanation: "return sends a value back to the caller.",
-        difficulty: 1
-      },
-      {
-        question_text: `What is a parameter?`,
-        options: ["Input to a function", "Output of a function", "Return value", "Function name"],
-        correct_answer: "Input to a function",
-        explanation: "Parameters are variables passed into a function.",
-        difficulty: 1
-      },
-      {
-        question_text: `What is function overloading?`,
-        options: ["Multiple functions with same name", "One function with many parameters", "A recursive function", "An anonymous function"],
-        correct_answer: "Multiple functions with same name",
-        explanation: "Overloading allows multiple functions with the same name but different parameters.",
-        difficulty: 3
-      }
-    ],
-    arrays: [
-      {
-        question_text: `What index does an array start at?`,
-        options: ["-1", "0", "1", "Any"],
-        correct_answer: "0",
-        explanation: "Arrays are 0-indexed in most programming languages.",
-        difficulty: 1
-      },
-      {
-        question_text: `How do you access the first element of an array 'arr'?`,
-        options: ["arr[0]", "arr[1]", "arr.first()", "arr[begin]"],
-        correct_answer: "arr[0]",
-        explanation: "Index 0 accesses the first element.",
-        difficulty: 1
-      }
-    ]
-  };
-
-  // Return questions for the concept, or default questions if concept not found
-  if (questionBank[concept]) {
-    return questionBank[concept];
-  }
+async function generateAIQuestions(concept, language, difficultyLevel, weakTopics, studentId) {
+  const difficultyText = difficultyLevel === 1 ? 'easy/beginner' : difficultyLevel === 2 ? 'intermediate' : 'advanced/challenging';
   
-  // Default questions for any concept
-  return [
-    {
-      question_text: `What is ${concept} in ${language} programming?`,
-      options: [`Definition of ${concept}`, `How to use ${concept}`, `${concept} examples`, `All of the above`],
-      correct_answer: `All of the above`,
-      explanation: `${concept} is an important programming concept.`,
-      difficulty: 1
-    },
-    {
-      question_text: `Why is ${concept} important?`,
-      options: ["It helps organize code", "It improves performance", "It enables reusability", "All of the above"],
-      correct_answer: "All of the above",
-      explanation: `${concept} provides multiple benefits in programming.`,
-      difficulty: 2
-    },
-    {
-      question_text: `When should you use ${concept}?`,
-      options: ["Always", "Never", "When appropriate", "Only for beginners"],
-      correct_answer: "When appropriate",
-      explanation: `Use ${concept} when the situation calls for it.`,
-      difficulty: 2
-    },
-    {
-      question_text: `What is a common mistake with ${concept}?`,
-      options: ["Wrong syntax", "Wrong usage", "Overuse", "All of the above"],
-      correct_answer: "All of the above",
-      explanation: `There are several common pitfalls with ${concept}.`,
-      difficulty: 2
-    },
-    {
-      question_text: `Which best describes ${concept}?`,
-      options: [`Core ${language} feature`, `Advanced technique`, `Basic concept`, `Design pattern`],
-      correct_answer: `Core ${language} feature`,
-      explanation: `${concept} is fundamental to ${language} programming.`,
-      difficulty: 1
+  const prompt = `Generate 5 unique, original multiple-choice questions about "${concept}" in ${language} programming.
+
+REQUIREMENTS:
+- Difficulty level: ${difficultyText}
+- All questions must be DIFFERENT and test distinct aspects of ${concept}
+${weakTopics.length > 0 ? `- Focus on these weak areas: ${weakTopics.join(', ')}` : '- Cover the most important fundamentals'}
+- Each question must be creative and not obvious
+- No duplicate questions
+- Questions should progressively get harder if difficulty is advanced
+
+Return ONLY valid JSON array. NO markdown, NO explanations outside JSON.
+
+Each question object must have:
+{
+  "question_text": "clear, specific question",
+  "options": ["option A", "option B", "option C", "option D"],
+  "correct_answer": "exact text of the correct option",
+  "explanation": "detailed explanation of why this is correct and common misconceptions",
+  "difficulty": ${difficultyLevel},
+  "topic": "specific sub-topic within ${concept}"
+}
+
+Generate 5 questions now.`;
+
+  try {
+    const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert programming educator and question designer. Create high-quality, original multiple-choice questions. Return ONLY valid JSON array. No other text ever.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.8,
+        max_tokens: 4000
+      })
+    });
+
+    if (!aiResponse.ok) {
+      throw new Error(`AI API error: ${aiResponse.status}`);
     }
-  ];
+
+    const aiData = await aiResponse.json();
+    const content = aiData.choices[0].message.content;
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    
+    if (jsonMatch) {
+      const questions = JSON.parse(jsonMatch[0]);
+      if (questions.length === 5) {
+        return questions;
+      }
+    }
+    
+    throw new Error('Invalid AI response format');
+  } catch (error) {
+    console.error('AI generation failed:', error);
+    return { error: true, message: error.message };
+  }
 }
