@@ -17,41 +17,33 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
     }
 
-    // Get student's performance data
+    // Get saved gap analysis
+    const gapAnalysis = await query(`
+      SELECT concept, analysis_data, created_at
+      FROM gap_analysis
+      WHERE student_id = $1
+      ORDER BY created_at DESC
+    `, [studentId]);
+
+    // Get recent responses
     const responses = await query(`
       SELECT r.*, qs.concept, qs.language
       FROM responses r
       JOIN quiz_sessions qs ON r.session_id = qs.session_id
       WHERE r.student_id = $1
       ORDER BY r.timestamp DESC
+      LIMIT 50
     `, [studentId]);
 
-    if (responses.rows.length === 0) {
+    if (responses.rows.length === 0 && gapAnalysis.rows.length === 0) {
       return NextResponse.json({ 
         recommendations: [],
-        message: "Complete quizzes to get AI-powered recommendations"
+        message: "Complete a quiz to get personalized AI recommendations"
       });
     }
 
-    // Get concepts they struggled with
-    const failedConcepts = {};
-    for (const resp of responses.rows) {
-      if (!resp.is_correct) {
-        const concept = resp.concept || 'general';
-        if (!failedConcepts[concept]) {
-          failedConcepts[concept] = { count: 0, language: resp.language };
-        }
-        failedConcepts[concept].count++;
-      }
-    }
-
-    const strugglingConcepts = Object.entries(failedConcepts)
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 5)
-      .map(([concept, data]) => ({ concept, language: data.language, failCount: data.count }));
-
-    // Generate AI-powered recommendations
-    const recommendations = await generateAIRecommendations(studentId, strugglingConcepts, responses.rows);
+    // Generate AI recommendations based on stored analysis and recent performance
+    const recommendations = await generateAIRecommendationsFromData(studentId, responses.rows, gapAnalysis.rows);
 
     return NextResponse.json({
       recommendations: recommendations.slice(0, limit),
@@ -65,10 +57,45 @@ export async function GET(request) {
   }
 }
 
-async function generateAIRecommendations(studentId, strugglingConcepts, responses) {
-  if (strugglingConcepts.length === 0) {
-    return [];
+async function generateAIRecommendationsFromData(studentId, responses, gapAnalysis) {
+  const incorrectResponses = responses.filter(r => !r.is_correct);
+  const conceptsWithIssues = {};
+  
+  for (const resp of incorrectResponses) {
+    const concept = resp.concept || 'general';
+    if (!conceptsWithIssues[concept]) {
+      conceptsWithIssues[concept] = { count: 0, errors: [] };
+    }
+    conceptsWithIssues[concept].count++;
+    if (resp.selected_answer) {
+      conceptsWithIssues[concept].errors.push(resp.selected_answer);
+    }
   }
+
+  const strugglingConcepts = Object.entries(conceptsWithIssues)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([concept, data]) => ({ concept, errorCount: data.count, sampleErrors: data.errors.slice(0, 3) }));
+
+  const prompt = `Generate personalized learning recommendations for a programming student.
+
+STRUGGLING CONCEPTS:
+${JSON.stringify(strugglingConcepts, null, 2)}
+
+RECENT INCORRECT ANSWERS:
+${JSON.stringify(incorrectResponses.slice(0, 10), null, 2)}
+
+Return ONLY a JSON array of recommendations. Each recommendation must have:
+- title: specific, descriptive title
+- type: "video", "article", "exercise", "interactive", "course"
+- url: REAL working URL (YouTube, freeCodeCamp, MDN, W3Schools, Coursera, Udemy free, etc.)
+- description: why this helps their specific struggle
+- concept: which concept this addresses
+- priority: "high", "medium", "low"
+- estimated_duration_minutes: number
+
+Example:
+[{"title": "Python Variables Explained", "type": "video", "url": "https://www.youtube.com/watch?v=example", "description": "Clear explanation of variable assignment", "concept": "variables", "priority": "high", "estimated_duration_minutes": 15}]`;
 
   try {
     const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -82,82 +109,48 @@ async function generateAIRecommendations(studentId, strugglingConcepts, response
         messages: [
           {
             role: 'system',
-            content: `You are an AI learning assistant. Generate personalized learning resource recommendations based on student's knowledge gaps.
-            Return ONLY valid JSON array. NO markdown, NO extra text.
-            Each recommendation must have:
-            - title: descriptive title
-            - type: "video", "article", "exercise", "interactive"
-            - url: relevant URL (use real resource URLs like YouTube, MDN, W3Schools, freeCodeCamp)
-            - reason: why this helps their specific gap
-            - concept: the concept it addresses
-            - priority: "high", "medium", "low"
-            - estimated_duration_minutes: number
-            - difficulty: "beginner", "intermediate", "advanced"`
+            content: 'You are a learning resource curator. Return ONLY valid JSON array with real, working educational URLs.'
           },
-          {
-            role: 'user',
-            content: `Student struggled with these concepts:
-${JSON.stringify(strugglingConcepts, null, 2)}
-
-Recent incorrect answers:
-${JSON.stringify(responses.filter(r => !r.is_correct).slice(0, 10), null, 2)}
-
-Generate 5-10 specific learning resources that will help this student improve. 
-Use REAL educational URLs (YouTube tutorials, freeCodeCamp, MDN, W3Schools, Coursera free courses, etc.).
-Make recommendations specific to their struggles.`
-          }
+          { role: 'user', content: prompt }
         ],
         temperature: 0.4,
-        max_tokens: 3000
+        max_tokens: 2500
       })
     });
-    
+
     const aiData = await aiResponse.json();
     const content = aiData.choices[0].message.content;
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     
     if (jsonMatch) {
-      const recommendations = JSON.parse(jsonMatch[0]);
-      
-      // Save recommendations to database for tracking
-      for (const rec of recommendations) {
-        await saveRecommendation(studentId, rec);
-      }
-      
-      return recommendations;
+      return JSON.parse(jsonMatch[0]);
     }
   } catch (error) {
     console.error('AI recommendation generation failed:', error);
   }
-  
-  // Generate recommendations based on actual struggling concepts (not hardcoded)
+
+  // Generate recommendations based on actual struggling concepts
   const recommendations = [];
-  for (const concept of strugglingConcepts) {
+  for (const item of strugglingConcepts) {
     recommendations.push({
-      title: `Master ${concept.concept} in ${concept.language}`,
-      type: "interactive",
-      url: `/student/quizzes?concept=${concept.concept}`,
-      reason: `You've struggled with ${concept.concept} ${concept.failCount} times. Practice more to improve.`,
-      concept: concept.concept,
+      title: `Master ${item.concept} - Complete Tutorial`,
+      type: "tutorial",
+      url: `https://www.w3schools.com/python/python_${item.concept.toLowerCase()}.asp`,
+      description: `You struggled with ${item.concept} ${item.errorCount} times. This tutorial covers the fundamentals.`,
+      concept: item.concept,
       priority: "high",
-      estimated_duration_minutes: 30,
-      difficulty: "beginner"
+      estimated_duration_minutes: 30
+    });
+    recommendations.push({
+      title: `${item.concept} Practice Exercises`,
+      type: "exercise",
+      url: `/student/quizzes?concept=${item.concept}`,
+      description: `Practice more ${item.concept} questions to improve.`,
+      concept: item.concept,
+      priority: "high",
+      estimated_duration_minutes: 45
     });
   }
   
   return recommendations;
-}
-
-async function saveRecommendation(studentId, recommendation) {
-  try {
-    const { query } = await import('@/lib/db');
-    await query(`
-      INSERT INTO recommendations (student_id, concept, title, type, url, reason, priority)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (student_id, concept) 
-      DO UPDATE SET title = EXCLUDED.title, url = EXCLUDED.url, reason = EXCLUDED.reason, generated_at = NOW()
-    `, [studentId, recommendation.concept, recommendation.title, recommendation.type, recommendation.url, recommendation.reason, recommendation.priority]);
-  } catch (error) {
-    console.error('Failed to save recommendation:', error);
-  }
 }
