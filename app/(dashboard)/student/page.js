@@ -490,8 +490,8 @@ export default function StudentDashboard() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Static Header */}
-        <div className="sticky top-0 z-30 bg-[#0A1628]/90 backdrop-blur-xl border-b border-white/10">
+        {/* Static Header - Fixed at top */}
+        <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
               <Menu size={20} />
@@ -516,19 +516,22 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
-          {/* Welcome Section */}
-          <div className="mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-white">{greeting}, {studentName}!</h2>
-            <p className="text-sm text-gray-400 mt-1">
+        {/* Main Content with padding for fixed header */}
+        <div className="pt-20 md:pt-20 px-4 md:px-6 pb-24 md:pb-6">
+          {/* Welcome Section - Pushed down and persistent */}
+          <div className="mb-6 mt-2">
+            <h2 className="text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              {greeting}, {studentName}!
+            </h2>
+            <p className="text-sm md:text-base text-gray-400 mt-2 max-w-2xl">
               {performance.completedQuizzes === 0 
                 ? "Start your first quiz to begin your learning journey" 
-                : `You've completed ${performance.completedQuizzes} quizzes with ${performance.accuracy}% accuracy.`}
+                : `You've completed ${performance.completedQuizzes} quizzes with ${performance.accuracy}% accuracy. Keep going!`}
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
             <StatCard 
               title="Quizzes Done"
               value={performance.completedQuizzes}
@@ -553,26 +556,28 @@ export default function StudentDashboard() {
             />
           </div>
 
-          {/* Visualizations Section */}
+          {/* Visualizations Section - Fully responsive */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Line Graph Visualization */}
             {conceptMastery.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <LineChart size={18} className="text-blue-400" />
                     <h3 className="font-semibold text-white text-sm md:text-base">Performance Trend</h3>
                   </div>
                   <span className="text-xs text-gray-500">Concept Mastery (%)</span>
                 </div>
-                <ConceptLineGraph concepts={conceptMastery} />
+                <div className="overflow-x-auto">
+                  <ConceptLineGraph concepts={conceptMastery} />
+                </div>
               </div>
             )}
 
             {/* Hexagonal Graph Visualization */}
             {conceptMastery.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <Hexagon size={18} className="text-blue-400" />
                     <h3 className="font-semibold text-white text-sm md:text-base">Concept Mastery Hexagon</h3>
@@ -587,34 +592,52 @@ export default function StudentDashboard() {
           {/* Concept Performance List */}
           {conceptMastery.length > 0 && (
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <BarChart3 size={18} className="text-blue-400" />
                   <h3 className="font-semibold text-white text-sm md:text-base">Ranked Concept Performance</h3>
                 </div>
                 <Link href="/student/gaps">
-                  <button className="text-xs text-blue-400 hover:text-blue-300 transition">View All</button>
+                  <button className="text-xs text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+                    View All <ChevronRight size={12} />
+                  </button>
                 </Link>
               </div>
               <RankedConceptList concepts={conceptMastery.slice(0, 5)} />
             </div>
           )}
 
-          {/* High Priority Gaps */}
-          {primaryGaps.length > 0 && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
+          {/* High Priority Gaps - Now sourced from same data */}
+          {primaryGaps && primaryGaps.length > 0 && (
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4 mb-6">
               <div className="flex items-start gap-3">
-                <AlertCircle size={18} className="text-red-400 mt-0.5" />
-                <div>
+                <AlertCircle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
                   <p className="text-sm font-medium text-red-400 mb-1">High Priority Gaps</p>
                   <p className="text-sm text-gray-300">
                     Focus on: {primaryGaps.slice(0, 3).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}
                   </p>
                   <Link href="/student/gaps">
-                    <button className="mt-2 text-xs text-red-400 hover:text-red-300 transition">View Details</button>
+                    <button className="mt-2 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                      View Details <ChevronRight size={10} />
+                    </button>
                   </Link>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* No Data State */}
+          {conceptMastery.length === 0 && (
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-8 text-center">
+              <Target size={40} className="mx-auto text-gray-500 mb-3" />
+              <h3 className="text-lg font-semibold text-white mb-2">No Data Yet</h3>
+              <p className="text-sm text-gray-400">Complete your first quiz to see your performance metrics and knowledge gaps.</p>
+              <Link href="/student/quizzes">
+                <button className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white text-sm transition">
+                  Start a Quiz
+                </button>
+              </Link>
             </div>
           )}
         </div>
