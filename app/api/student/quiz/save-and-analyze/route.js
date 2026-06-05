@@ -29,11 +29,25 @@ export async function POST(request) {
       WHERE session_id = $2
     `, [JSON.stringify(analysis), sessionId]);
 
+    // *** CALL THE PERFORMANCE UPDATE ENDPOINT ***
+    const performanceResponse = await fetch(`${process.env.NEXTAUTH_URL}/api/student/update-performance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: studentId,
+        sessionId: sessionId
+      })
+    });
+
+    if (!performanceResponse.ok) {
+      console.error('Failed to update performance:', await performanceResponse.text());
+    }
+
     return NextResponse.json({
       success: true,
       analysis: analysis,
       session_id: sessionId,
-      message: "Quiz analysis complete"
+      message: "Quiz analysis complete and performance updated"
     });
   } catch (error) {
     console.error('Save and analyze error:', error);

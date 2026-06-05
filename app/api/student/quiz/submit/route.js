@@ -26,7 +26,7 @@ export async function POST(request) {
     // Get quiz session
     const sessionResult = await query(
       `SELECT session_id, student_id, concept, language, total_questions,
-              current_question_index, score
+              current_question_index, score, status
        FROM quiz_sessions
        WHERE session_id = $1`,
       [sessionId]
@@ -37,6 +37,15 @@ export async function POST(request) {
     }
 
     const quizSession = sessionResult.rows[0];
+    
+    // Check if quiz is already completed
+    if (quizSession.status === 'completed') {
+      return NextResponse.json({ 
+        error: 'Quiz already completed',
+        quiz_completed: true 
+      }, { status: 400 });
+    }
+
     const currentIdx = questionIndex !== undefined ? questionIndex : (quizSession.current_question_index || 0);
     const currentQ = allQuestions?.[currentIdx];
 
@@ -102,13 +111,37 @@ export async function POST(request) {
     const totalQuestions = Number(quizSession.total_questions) || 5;
     const completed = newIndex >= totalQuestions;
 
+    // If quiz is completed, update status and trigger performance update
     if (completed) {
+      // Mark session as completed
       await query(
         `UPDATE quiz_sessions
          SET status = 'completed', completed_at = NOW()
          WHERE session_id = $1`,
         [sessionId]
       );
+
+      // Calculate percentage score
+      const percentageScore = Math.round((newScore / totalQuestions) * 100);
+      
+      // Update the session with percentage score
+      await query(
+        `UPDATE quiz_sessions
+         SET percentage_score = $1
+         WHERE session_id = $2`,
+        [percentageScore, sessionId]
+      );
+
+      // Update student performance in the background
+      // Don't await - let it run in background to not block response
+      fetch(`${process.env.NEXTAUTH_URL}/api/student/update-performance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: quizSession.student_id,
+          sessionId: sessionId
+        })
+      }).catch(err => console.error('Background performance update failed:', err));
     }
 
     // Get next question
@@ -147,30 +180,35 @@ Return ONLY valid JSON:
   "explanation": "detailed feedback"
 }`;
 
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'mistral-small-latest',
-      messages: [
-        { role: 'system', content: 'You evaluate programming answers. Return ONLY valid JSON.' },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.2,
-      max_tokens: 500
-    })
-  });
+  try {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        messages: [
+          { role: 'system', content: 'You evaluate programming answers. Return ONLY valid JSON.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 500
+      })
+    });
 
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content || '{}';
-  const match = content.match(/\{[\s\S]*\}/);
-  
-  if (match) {
-    return JSON.parse(match[0]);
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '{}';
+    const match = content.match(/\{[\s\S]*\}/);
+    
+    if (match) {
+      return JSON.parse(match[0]);
+    }
+    
+    return { isCorrect: false, explanation: 'Evaluation failed' };
+  } catch (error) {
+    console.error('AI evaluation error:', error);
+    return { isCorrect: false, explanation: 'Unable to evaluate at this time.' };
   }
-  
-  return { isCorrect: false, explanation: 'Evaluation failed' };
 }

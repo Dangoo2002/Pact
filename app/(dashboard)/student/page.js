@@ -98,45 +98,13 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// Progress Bar Component
-const ProgressBar = ({ value, max = 100, color = 'blue', label }) => {
-  const percentage = Math.min(100, (value / max) * 100);
-  const colorClass = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    yellow: 'bg-yellow-500',
-    red: 'bg-red-500',
-    purple: 'bg-purple-500'
-  }[color] || 'bg-blue-500';
-  
-  return (
-    <div className="space-y-1">
-      {label && (
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-400">{label}</span>
-          <span className="text-white font-medium">{Math.round(percentage)}%</span>
-        </div>
-      )}
-      <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${percentage}%` }} />
-      </div>
-    </div>
-  );
-};
-
 // Stat Card Component
-const StatCard = ({ title, value, subtitle, icon: Icon, trend, trendValue }) => (
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }) => (
   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition-all duration-300">
     <div className="flex items-center justify-between mb-3">
-      <div className="p-2 rounded-lg bg-blue-500/20">
-        <Icon size={18} className="text-blue-400" />
+      <div className={`p-2 rounded-lg bg-${color}-500/20`}>
+        <Icon size={18} className={`text-${color}-400`} />
       </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-xs ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
-          {trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          <span>{trendValue}</span>
-        </div>
-      )}
     </div>
     <p className="text-2xl md:text-3xl font-bold text-white">{value}</p>
     <p className="text-xs text-gray-400 mt-1">{title}</p>
@@ -357,12 +325,13 @@ export default function StudentDashboard() {
       correctAnswers: 0,
       accuracy: 0,
       overallMastery: 0,
-      currentStreak: 0
+      currentStreak: 0,
+      longestStreak: 0
     },
     conceptMastery: [],
     primaryGaps: [],
     secondaryGaps: [],
-    recentActivity: []
+    totalGaps: 0
   });
   
   // AI Chat State
@@ -412,6 +381,18 @@ export default function StudentDashboard() {
         console.log('Student performance endpoint not ready yet');
       }
       
+      // Also fetch completed quizzes directly from quiz_sessions
+      const sessionsRes = await fetch(`/api/student/sessions?studentId=${studentId}`);
+      let sessionsData = { sessions: [] };
+      try {
+        sessionsData = await sessionsRes.json();
+      } catch (e) {
+        console.log('Sessions endpoint not ready yet');
+      }
+      
+      // Count completed quizzes from quiz_sessions
+      const completedQuizzesFromSessions = sessionsData.sessions?.filter(s => s.status === 'completed').length || 0;
+      
       // Process concept mastery data
       let conceptMastery = [];
       
@@ -440,6 +421,9 @@ export default function StudentDashboard() {
         conceptMastery = Array.from(conceptMap.values());
       }
       
+      // Calculate total gaps
+      const totalGaps = (gapsData.primary_gaps?.length || 0) + (gapsData.secondary_gaps?.length || 0);
+      
       // Calculate overall metrics
       const overallMastery = conceptMastery.length > 0 
         ? Math.round(conceptMastery.reduce((sum, c) => sum + c.mastery, 0) / conceptMastery.length)
@@ -450,21 +434,24 @@ export default function StudentDashboard() {
           ? Math.round((perfData.total_correct_answers / perfData.total_questions_answered) * 100)
           : 0);
       
+      // Use the actual completed quizzes count from sessions
+      const finalCompletedQuizzes = completedQuizzesFromSessions || perfData.completed_quizzes || 0;
+      
       setDashboardData({
         performance: {
-          totalQuizzes: perfData.total_quizzes || 0,
-          completedQuizzes: perfData.completed_quizzes || 0,
+          totalQuizzes: perfData.total_quizzes || sessionsData.sessions?.length || 0,
+          completedQuizzes: finalCompletedQuizzes,
           totalQuestions: perfData.total_questions_answered || 0,
           correctAnswers: perfData.total_correct_answers || 0,
           accuracy: accuracy,
           overallMastery: overallMastery,
           currentStreak: perfData.current_streak || 0,
-          performanceTier: perfData.performance_tier || 'beginner'
+          longestStreak: perfData.longest_streak || 0
         },
         conceptMastery: conceptMastery,
         primaryGaps: gapsData.primary_gaps || [],
         secondaryGaps: gapsData.secondary_gaps || [],
-        recentActivity: gapsData.recent_activity || []
+        totalGaps: totalGaps
       });
       
       // Initialize AI chat with personalized greeting
@@ -477,11 +464,11 @@ export default function StudentDashboard() {
       if (overallMastery > 0) {
         personalizedMessage += `\n\n**Your Learning Summary:**`;
         personalizedMessage += `\n• Overall Mastery: ${overallMastery}%`;
-        personalizedMessage += `\n• Quizzes Completed: ${perfData.completed_quizzes || 0}`;
+        personalizedMessage += `\n• Quizzes Completed: ${finalCompletedQuizzes}`;
         personalizedMessage += `\n• Accuracy: ${accuracy}%`;
+        personalizedMessage += `\n• Identified Gaps: ${totalGaps} areas to improve`;
         
         if (gapCount > 0) {
-          personalizedMessage += `\n• Knowledge Gaps: ${gapCount} areas need attention`;
           personalizedMessage += `\n\nFocus on: ${gapsData.primary_gaps.slice(0, 2).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}`;
         }
         
@@ -573,7 +560,7 @@ export default function StudentDashboard() {
 
   const greeting = getGreeting();
   const studentName = session?.user?.name?.split(' ')[0] || 'Student';
-  const { performance, conceptMastery, primaryGaps } = dashboardData;
+  const { performance, conceptMastery, primaryGaps, totalGaps } = dashboardData;
 
   // Prepare chart data
   const hasData = conceptMastery.length > 0;
@@ -625,32 +612,34 @@ export default function StudentDashboard() {
             </p>
           </div>
 
-          {/* Stats Grid */}
+          {/* Stats Grid - Updated Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
             <StatCard 
               title="Overall Mastery"
               value={`${performance.overallMastery}%`}
               icon={Brain}
-              trend={performance.overallMastery > 50 ? 'up' : 'down'}
-              trendValue={performance.overallMastery > 50 ? 'Improving' : 'Needs focus'}
+              color="blue"
             />
             <StatCard 
-              title="Accuracy"
-              value={`${performance.accuracy}%`}
-              subtitle={`${performance.correctAnswers}/${performance.totalQuestions} correct`}
+              title="Identified Gaps"
+              value={totalGaps}
+              subtitle={`${primaryGaps.length} high priority`}
               icon={Target}
+              color="red"
             />
             <StatCard 
               title="Quizzes Completed"
               value={performance.completedQuizzes}
               subtitle={`${performance.totalQuizzes} total attempts`}
               icon={BookOpen}
+              color="green"
             />
             <StatCard 
-              title="Current Streak"
-              value={performance.currentStreak}
+              title="Longest Streak"
+              value={performance.longestStreak}
               subtitle="Days in a row"
               icon={Flame}
+              color="orange"
             />
           </div>
 
