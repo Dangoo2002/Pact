@@ -316,7 +316,10 @@ export default function StudentDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  
+  // FIX: Initialize loading to false so the UI renders immediately
+  const [loading, setLoading] = useState(false); 
+  
   const [dashboardData, setDashboardData] = useState({
     performance: {
       totalQuizzes: 0,
@@ -345,6 +348,7 @@ export default function StudentDashboard() {
       router.push('/login');
       return;
     }
+    // Only fetch data if we are authenticated AND haven't loaded data yet (or session changed)
     if (status === 'authenticated' && session?.user?.id) {
       fetchDashboardData();
     }
@@ -355,7 +359,12 @@ export default function StudentDashboard() {
   }, [messages]);
 
   const fetchDashboardData = async () => {
+    // FIX: Don't set setLoading(true) here immediately if you want the skeleton to show.
+    // Or, keep it true but ensure the initial render isn't blocked by it.
+    // Since we initialized loading to false, we can set it to true now for subsequent refreshes
+    // but the first render will already be visible.
     setLoading(true);
+    
     try {
       const studentId = session.user.id;
       
@@ -454,37 +463,39 @@ export default function StudentDashboard() {
         totalGaps: totalGaps
       });
       
-      // Initialize AI chat with personalized greeting
-      const greeting = getGreeting();
-      const studentName = session?.user?.name?.split(' ')[0] || 'Student';
-      const gapCount = gapsData.primary_gaps?.length || 0;
-      
-      let personalizedMessage = `${greeting}, ${studentName}! I'm your AI learning assistant. `;
-      
-      if (overallMastery > 0) {
-        personalizedMessage += `\n\n**Your Learning Summary:**`;
-        personalizedMessage += `\n• Overall Mastery: ${overallMastery}%`;
-        personalizedMessage += `\n• Quizzes Completed: ${finalCompletedQuizzes}`;
-        personalizedMessage += `\n• Accuracy: ${accuracy}%`;
-        personalizedMessage += `\n• Identified Gaps: ${totalGaps} areas to improve`;
+      // Initialize AI chat with personalized greeting ONLY if messages are empty
+      if (messages.length === 0) {
+        const greeting = getGreeting();
+        const studentName = session?.user?.name?.split(' ')[0] || 'Student';
+        const gapCount = gapsData.primary_gaps?.length || 0;
         
-        if (gapCount > 0) {
-          personalizedMessage += `\n\nFocus on: ${gapsData.primary_gaps.slice(0, 2).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}`;
+        let personalizedMessage = `${greeting}, ${studentName}! I'm your AI learning assistant. `;
+        
+        if (overallMastery > 0) {
+          personalizedMessage += `\n\n**Your Learning Summary:**`;
+          personalizedMessage += `\n• Overall Mastery: ${overallMastery}%`;
+          personalizedMessage += `\n• Quizzes Completed: ${finalCompletedQuizzes}`;
+          personalizedMessage += `\n• Accuracy: ${accuracy}%`;
+          personalizedMessage += `\n• Identified Gaps: ${totalGaps} areas to improve`;
+          
+          if (gapCount > 0) {
+            personalizedMessage += `\n\nFocus on: ${gapsData.primary_gaps.slice(0, 2).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}`;
+          }
+          
+          personalizedMessage += `\n\nHow can I help you today? You can ask me about specific concepts, get study tips, or request practice recommendations.`;
+        } else {
+          personalizedMessage += ` Welcome to PACT! Start by taking a quiz to see your personalized learning analytics. I'll be here to help you every step of the way!`;
         }
         
-        personalizedMessage += `\n\nHow can I help you today? You can ask me about specific concepts, get study tips, or request practice recommendations.`;
-      } else {
-        personalizedMessage += ` Welcome to PACT! Start by taking a quiz to see your personalized learning analytics. I'll be here to help you every step of the way!`;
+        setMessages([
+          { 
+            id: 1,
+            role: 'assistant', 
+            content: personalizedMessage,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
       }
-      
-      setMessages([
-        { 
-          id: 1,
-          role: 'assistant', 
-          content: personalizedMessage,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
       
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -550,7 +561,9 @@ export default function StudentDashboard() {
     }
   };
 
-  if (status === 'loading' || loading) {
+  // FIX: Only show full screen loader if Session is still checking status.
+  // Do NOT show it if we are just fetching dashboard data (loading state).
+  if (status === 'loading') {
     return (
       <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
