@@ -39,7 +39,7 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-// Sidebar Component with consistent blue (#3B82F6)
+// Sidebar Component
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -112,7 +112,7 @@ const ProgressBar = ({ value, max = 100, color = '#3B82F6', label }) => {
     <div className="space-y-1">
       {label && (
         <div className="flex justify-between text-xs">
-          <span className="text-gray-400">{label}</span>
+          <span className="text-gray-400 capitalize">{label.replace(/_/g, ' ')}</span>
           <span className="text-white font-medium">{Math.round(percentage)}%</span>
         </div>
       )}
@@ -126,7 +126,7 @@ const ProgressBar = ({ value, max = 100, color = '#3B82F6', label }) => {
   );
 };
 
-// Stat Card Component with consistent blue
+// Stat Card Component
 const StatCard = ({ title, value, subtitle, icon: Icon }) => (
   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 hover:border-[#3B82F6]/30 transition-all duration-300">
     <div className="flex items-center justify-between mb-3">
@@ -140,56 +140,76 @@ const StatCard = ({ title, value, subtitle, icon: Icon }) => (
   </div>
 );
 
-// Hexagon Visual Component for Concept Mastery
-const HexagonVisual = ({ concepts }) => {
-  const getColor = (mastery) => {
-    if (mastery >= 80) return '#10B981';
-    if (mastery >= 60) return '#F59E0B';
-    if (mastery >= 40) return '#F97316';
-    return '#EF4444';
-  };
-
+// Horizontal Bar Chart for Concept Performance
+const ConceptBarChart = ({ concepts }) => {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {concepts.slice(0, 6).map((concept, idx) => (
-        <div key={idx} className="flex flex-col items-center text-center">
-          <div 
-            className="w-16 h-16 flex items-center justify-center rounded-lg transition-all duration-300 hover:scale-105"
-            style={{ 
-              backgroundColor: `${getColor(concept.mastery)}20`,
-              border: `2px solid ${getColor(concept.mastery)}`,
-              boxShadow: `0 0 10px ${getColor(concept.mastery)}40`
-            }}
-          >
-            <span className="text-lg font-bold" style={{ color: getColor(concept.mastery) }}>
-              {Math.round(concept.mastery)}%
-            </span>
+    <div className="space-y-4">
+      {concepts.map((concept, idx) => (
+        <div key={idx}>
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-gray-300 capitalize">{concept.concept?.replace(/_/g, ' ')}</span>
+            <span className="text-white font-medium">{Math.round(concept.mastery)}%</span>
           </div>
-          <p className="text-xs text-gray-400 mt-2 capitalize">{concept.concept?.replace(/_/g, ' ')}</p>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div 
+              className="h-full rounded-full transition-all duration-500"
+              style={{ 
+                width: `${Math.min(100, concept.mastery)}%`,
+                backgroundColor: concept.mastery >= 80 ? '#10B981' : concept.mastery >= 60 ? '#F59E0B' : '#3B82F6'
+              }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{concept.totalQuestions} questions • {concept.correctAnswers} correct</p>
         </div>
       ))}
     </div>
   );
 };
 
-// Line Chart Component for Weekly Progress
-const WeeklyProgressChart = ({ data }) => {
-  const maxScore = Math.max(...data.map(d => d.average_score), 1);
+// Line Chart for Concept Performance (Vertical scale 0-100)
+const ConceptLineChart = ({ concepts }) => {
+  const maxScore = 100;
   
   return (
-    <div className="h-40 mt-4">
-      <div className="flex h-32 items-end gap-2">
-        {data.map((week, idx) => (
-          <div key={idx} className="flex-1 flex flex-col items-center">
-            <div 
-              className="w-full bg-[#3B82F6]/50 rounded-t-lg transition-all duration-500 hover:bg-[#3B82F6]"
-              style={{ height: `${(week.average_score / maxScore) * 100}%`, minHeight: '4px' }}
-            />
-            <p className="text-xs text-gray-500 mt-2 rotate-45 origin-left">
-              {new Date(week.week_start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </p>
+    <div className="h-64 mt-4">
+      <div className="relative h-full">
+        {/* Y-axis labels */}
+        <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-500">
+          <span>100</span>
+          <span>75</span>
+          <span>50</span>
+          <span>25</span>
+          <span>0</span>
+        </div>
+        
+        {/* Chart area */}
+        <div className="ml-10 h-full relative">
+          {/* Horizontal grid lines */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            {[100, 75, 50, 25, 0].map((line, i) => (
+              <div key={i} className="border-t border-white/10 w-full"></div>
+            ))}
           </div>
-        ))}
+          
+          {/* Bars */}
+          <div className="relative h-full flex items-end gap-2 pt-4">
+            {concepts.map((concept, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center">
+                <div 
+                  className="w-full rounded-t-lg transition-all duration-500 hover:opacity-80"
+                  style={{ 
+                    height: `${concept.mastery}%`,
+                    backgroundColor: concept.mastery >= 80 ? '#10B981' : concept.mastery >= 60 ? '#F59E0B' : '#3B82F6',
+                    minHeight: '4px'
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center truncate w-full">
+                  {concept.concept?.replace(/_/g, ' ').substring(0, 10)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -265,8 +285,8 @@ export default function StudentDashboard() {
     },
     conceptMastery: [],
     weakConcepts: [],
-    weeklyProgress: [],
-    gapAnalysis: []
+    primaryGaps: [],
+    secondaryGaps: []
   });
   const [loading, setLoading] = useState(true);
   
@@ -300,37 +320,82 @@ export default function StudentDashboard() {
     try {
       const studentId = session.user.id;
       
-      // Fetch dashboard stats
-      const statsRes = await fetch(`/api/student/dashboard-stats?studentId=${studentId}`);
-      const statsData = await statsRes.json();
+      // Fetch gap analysis (same as knowledge gaps page)
+      const gapsRes = await fetch(`/api/student/gaps?studentId=${studentId}`);
+      const gapsData = await gapsRes.json();
+      
+      // Fetch responses for calculations
+      const responsesRes = await fetch(`/api/student/responses?studentId=${studentId}`);
+      const responsesData = await responsesRes.json();
+      const responses = responsesData.responses || [];
+      
+      // Calculate stats from responses
+      const totalQuestions = responses.length;
+      const correctAnswers = responses.filter(r => r.is_correct === true).length;
+      const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+      
+      // Get quiz sessions count
+      const sessionsRes = await fetch(`/api/student/sessions?studentId=${studentId}`);
+      const sessionsData = await sessionsRes.json();
+      const sessions = sessionsData.sessions || [];
+      const totalQuizzes = sessions.length;
+      const completedQuizzes = sessions.filter(s => s.status === 'completed').length;
+      
+      // Calculate concept mastery from responses (like knowledge gaps)
+      const conceptMap = new Map();
+      for (const resp of responses) {
+        const concept = resp.concept || 'general';
+        if (!conceptMap.has(concept)) {
+          conceptMap.set(concept, { total: 0, correct: 0 });
+        }
+        const stats = conceptMap.get(concept);
+        stats.total++;
+        if (resp.is_correct) stats.correct++;
+      }
+      
+      const conceptMastery = Array.from(conceptMap.entries()).map(([concept, stats]) => ({
+        concept,
+        mastery: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0,
+        totalQuestions: stats.total,
+        correctAnswers: stats.correct
+      })).sort((a, b) => a.mastery - b.mastery);
+      
+      // Get primary gaps from gap analysis
+      const primaryGaps = gapsData.primary_gaps || [];
+      const secondaryGaps = gapsData.secondary_gaps || [];
+      
+      // Calculate overall mastery from concept mastery
+      const overallMastery = conceptMastery.length > 0 
+        ? Math.round(conceptMastery.reduce((sum, c) => sum + c.mastery, 0) / conceptMastery.length)
+        : 0;
+      
+      // Identify weak concepts (mastery < 60%)
+      const weakConcepts = conceptMastery.filter(c => c.mastery < 60);
       
       setDashboardData({
-        performance: statsData.performance || {
-          totalQuizzes: 0,
-          completedQuizzes: 0,
-          totalQuestions: 0,
-          correctAnswers: 0,
-          accuracy: 0,
-          overallMastery: 0
+        performance: {
+          totalQuizzes,
+          completedQuizzes,
+          totalQuestions,
+          correctAnswers,
+          accuracy,
+          overallMastery
         },
-        conceptMastery: statsData.conceptMastery || [],
-        weakConcepts: statsData.weakConcepts || [],
-        weeklyProgress: statsData.weeklyProgress || [],
-        gapAnalysis: statsData.gapAnalysis || []
+        conceptMastery,
+        weakConcepts,
+        primaryGaps,
+        secondaryGaps
       });
       
       // Add AI welcome message
       const greeting = getGreeting();
       const studentName = session?.user?.name?.split(' ')[0] || 'Student';
-      const accuracy = statsData.performance?.accuracy || 0;
-      const completedQuizzes = statsData.performance?.completedQuizzes || 0;
-      const weakCount = statsData.weakConcepts?.length || 0;
       
       setMessages([
         { 
           id: 1,
           role: 'assistant', 
-          content: `${greeting}, ${studentName}! 👋 I'm your AI learning assistant.\n\n**Your Learning Summary:**\n• You've completed ${completedQuizzes} quizzes\n• Your overall accuracy is ${accuracy}%\n• You have ${weakCount} concepts to improve\n\nHow can I help you today? You can ask me about:\n• Specific programming concepts\n• Your knowledge gaps\n• Recommended learning resources\n• Study strategies`,
+          content: `${greeting}, ${studentName}! 👋 I'm your AI learning assistant.\n\n**Your Learning Summary:**\n• You've completed ${completedQuizzes} quizzes\n• Your overall accuracy is ${accuracy}%\n• You have ${primaryGaps.length} high-priority knowledge gaps\n\nHow can I help you today? You can ask me about:\n• Specific programming concepts\n• Your knowledge gaps\n• Recommended learning resources\n• Study strategies`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -366,7 +431,8 @@ export default function StudentDashboard() {
             accuracy: dashboardData.performance.accuracy,
             totalQuizzes: dashboardData.performance.completedQuizzes,
             weakConcepts: dashboardData.weakConcepts,
-            conceptMastery: dashboardData.conceptMastery
+            conceptMastery: dashboardData.conceptMastery,
+            primaryGaps: dashboardData.primaryGaps
           }
         })
       });
@@ -411,7 +477,7 @@ export default function StudentDashboard() {
 
   const greeting = getGreeting();
   const studentName = session?.user?.name?.split(' ')[0] || 'Student';
-  const { performance, conceptMastery, weakConcepts, weeklyProgress } = dashboardData;
+  const { performance, conceptMastery, weakConcepts, primaryGaps } = dashboardData;
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white">
@@ -459,13 +525,13 @@ export default function StudentDashboard() {
         <div className="flex flex-col lg:flex-row h-[calc(100vh-73px)]">
           {/* Left Panel - Analytics & Metrics (55%) */}
           <div className="w-full lg:w-[55%] overflow-y-auto p-6 border-r border-white/10">
-            {/* Welcome Section - FIXED: Now displays correctly */}
-            <div className="mb-6">
+            {/* Welcome Section - Now properly displayed */}
+            <div className="mb-6 pt-2">
               <h2 className="text-2xl font-bold text-white">{greeting}, {studentName}! 👋</h2>
               <p className="text-gray-400 mt-1 text-sm">
                 {performance.completedQuizzes === 0 
                   ? "Ready to start your learning journey? Take your first quiz today!" 
-                  : `Great progress! You've completed ${performance.completedQuizzes} quizzes with ${performance.accuracy}% accuracy. Keep going!`}
+                  : `You've completed ${performance.completedQuizzes} quizzes with ${performance.accuracy}% accuracy. ${primaryGaps.length} knowledge gaps identified.`}
               </p>
             </div>
 
@@ -486,7 +552,7 @@ export default function StudentDashboard() {
               <StatCard 
                 title="Overall Mastery"
                 value={`${performance.overallMastery}%`}
-                subtitle={`Based on concept performance`}
+                subtitle={`Based on ${conceptMastery.length} concepts`}
                 icon={Brain}
               />
               <StatCard 
@@ -497,7 +563,7 @@ export default function StudentDashboard() {
               />
             </div>
 
-            {/* Concept Mastery Section */}
+            {/* Concept Performance with Line Chart */}
             {conceptMastery.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 mb-6">
                 <div className="flex items-center justify-between mb-4">
@@ -514,40 +580,29 @@ export default function StudentDashboard() {
                   </Link>
                 </div>
                 
-                {/* Hexagon Visual for Concepts */}
-                {conceptMastery.length >= 3 && (
-                  <div className="mb-6">
-                    <HexagonVisual concepts={conceptMastery} />
-                  </div>
+                {/* Line Chart for Concepts */}
+                {conceptMastery.length >= 2 && (
+                  <ConceptLineChart concepts={conceptMastery} />
                 )}
                 
-                {/* Progress Bars for Concepts */}
-                <div className="space-y-4 mt-4">
-                  {conceptMastery.slice(0, 5).map((concept, idx) => (
-                    <div key={idx}>
-                      <ProgressBar 
-                        value={concept.mastery} 
-                        color={concept.mastery >= 80 ? '#10B981' : concept.mastery >= 60 ? '#F59E0B' : '#3B82F6'}
-                        label={concept.concept?.replace(/_/g, ' ')}
-                      />
-                      <p className="text-xs text-gray-500 mt-1.5">{concept.totalQuestions} questions • {concept.correctAnswers} correct</p>
-                    </div>
-                  ))}
+                {/* Progress Bars for Detailed View */}
+                <div className="mt-6">
+                  <ConceptBarChart concepts={conceptMastery} />
                 </div>
               </div>
             )}
 
-            {/* Weak Concepts Alert */}
-            {weakConcepts.length > 0 && (
-              <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-2xl p-5 mb-6">
+            {/* Weak Concepts Alert - Based on Gap Analysis */}
+            {primaryGaps.length > 0 && (
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-2xl p-5">
                 <div className="flex items-start gap-3">
                   <div className="p-2 rounded-lg bg-red-500/20">
                     <AlertCircle size={18} className="text-red-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-red-400 mb-1">Areas Needing Improvement</p>
+                    <p className="text-sm font-medium text-red-400 mb-1">High Priority Knowledge Gaps</p>
                     <p className="text-sm text-gray-300">
-                      You're struggling with: {weakConcepts.map(c => c.concept?.replace(/_/g, ' ')).join(', ')}. 
+                      You're struggling with: {primaryGaps.slice(0, 3).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}. 
                       Focus on these concepts to improve your overall score.
                     </p>
                     <Link href="/student/gaps">
@@ -557,19 +612,6 @@ export default function StudentDashboard() {
                     </Link>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Weekly Progress Chart */}
-            {weeklyProgress.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-1.5 rounded-lg bg-[#3B82F6]/20">
-                    <LineChart size={18} className="text-[#3B82F6]" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">Weekly Progress</h3>
-                </div>
-                <WeeklyProgressChart data={weeklyProgress} />
               </div>
             )}
           </div>
@@ -659,7 +701,7 @@ export default function StudentDashboard() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Chat Input */}
+                {/* Chat Input - Send icon now white without blue border */}
                 <div className="p-4 border-t border-white/10 bg-white/5">
                   <div className="flex gap-2">
                     <textarea
@@ -673,7 +715,7 @@ export default function StudentDashboard() {
                     <button
                       onClick={sendMessage}
                       disabled={isLoading || !input.trim()}
-                      className="px-4 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#3B82F6]/20"
+                      className="px-4 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                     </button>
