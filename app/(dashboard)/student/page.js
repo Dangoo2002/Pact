@@ -209,7 +209,7 @@ const HexagonalGrid = ({ concepts }) => {
   );
 };
 
-// AI Assistant Section Component - FIXED with correct icon
+// AI Assistant Section Component
 const AIAssistantSection = ({ messages, input, setInput, sendMessage, isLoading, messagesEndRef, handleKeyPress }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -482,7 +482,7 @@ export default function StudentDashboard() {
         
         if (gapCount > 0) {
           personalizedMessage += `\n• Knowledge Gaps: ${gapCount} areas need attention`;
-          personalizedMessage += `\n\n🎯 Focus on: ${gapsData.primary_gaps.slice(0, 2).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}`;
+          personalizedMessage += `\n\nFocus on: ${gapsData.primary_gaps.slice(0, 2).map(g => g.concept?.replace(/_/g, ' ')).join(', ')}`;
         }
         
         personalizedMessage += `\n\nHow can I help you today? You can ask me about specific concepts, get study tips, or request practice recommendations.`;
@@ -723,7 +723,7 @@ export default function StudentDashboard() {
 
           {/* Knowledge Gaps Section */}
           {primaryGaps && primaryGaps.length > 0 && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4 mb-8">
+            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle size={20} className="text-red-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
@@ -744,38 +744,6 @@ export default function StudentDashboard() {
               </div>
             </div>
           )}
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link href="/student/quizzes">
-              <button className="w-full p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition group">
-                <BookOpen size={20} className="mx-auto mb-2 text-blue-400 group-hover:scale-110 transition" />
-                <p className="text-xs text-white">Take a Quiz</p>
-              </button>
-            </Link>
-            <Link href="/student/gaps">
-              <button className="w-full p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 transition group">
-                <Target size={20} className="mx-auto mb-2 text-purple-400 group-hover:scale-110 transition" />
-                <p className="text-xs text-white">Review Gaps</p>
-              </button>
-            </Link>
-            <Link href="/student/recommendations">
-              <button className="w-full p-3 rounded-xl bg-green-500/10 border border-green-500/30 hover:bg-green-500/20 transition group">
-                <Sparkles size={20} className="mx-auto mb-2 text-green-400 group-hover:scale-110 transition" />
-                <p className="text-xs text-white">Recommendations</p>
-              </button>
-            </Link>
-            <button 
-              onClick={() => {
-                setInput("Give me a study tip based on my performance");
-                setTimeout(() => sendMessage(), 100);
-              }}
-              className="w-full p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/20 transition group"
-            >
-              <Bot size={20} className="mx-auto mb-2 text-yellow-400 group-hover:scale-110 transition" />
-              <p className="text-xs text-white">Ask AI for Tips</p>
-            </button>
-          </div>
         </div>
       </div>
 
