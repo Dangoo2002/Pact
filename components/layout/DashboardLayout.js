@@ -144,6 +144,11 @@ export default function DashboardLayout({ children }) {
 
   // Close sidebar on route change on mobile
   useEffect(() => {
+    const handleRouteChange = () => {
+      setSidebarOpen(false);
+    };
+    
+    // Close sidebar when children change (route changed)
     setSidebarOpen(false);
   }, [children]);
 
