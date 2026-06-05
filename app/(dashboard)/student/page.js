@@ -11,7 +11,8 @@ import {
   TrendingDown, Calendar, Activity, Brain, Loader2,
   Star, Zap, Flame, Medal, LineChart, PieChart,
   Bot, Send, X, HelpCircle, Hexagon, MessageCircle,
-  DollarSign, Globe, Database, Shield, Cpu, Cloud
+  DollarSign, Globe, Database, Shield, Cpu, Cloud,
+  Minimize
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { 
