@@ -184,38 +184,78 @@ export default function QuizzesPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
+        {/* Static Header - Always visible */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
+              <Menu size={20} />
+            </button>
+            <div className="hidden md:flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-blue-500/20">
+                <BookOpen size={18} className="text-blue-400" />
+              </div>
+              <h1 className="text-xl font-semibold text-white">Quizzes</h1>
+            </div>
             <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-white/10 relative"><Bell size={18} /><span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span></button>
-              <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span></div>
+              <button className="p-2 rounded-lg hover:bg-white/10 relative">
+                <Bell size={18} className="text-gray-400" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
+              </button>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-blue-400" />
+                </div>
+                <span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Student'}</span>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="p-4 md:p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Practice Quizzes</h1>
-              <p className="text-sm text-gray-400 mt-1">Test your knowledge on programming concepts across 7 languages</p>
-            </div>
-            <button onClick={() => setShowFilters(!showFilters)} className="md:hidden p-2 rounded-lg border border-white/10 hover:bg-white/10"><Filter size={18} className="text-gray-400" /></button>
+          {/* Welcome Section */}
+          <div className="mb-5">
+            <h2 className="text-xl md:text-2xl font-bold text-white">Practice Quizzes</h2>
+            <p className="text-sm text-gray-400 mt-1">Test your knowledge on programming concepts across 7 languages</p>
           </div>
 
-          {/* Filters */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
+          {/* Filter Toggle Button for Mobile */}
+          <div className="flex justify-between items-center mb-4 md:hidden">
+            <button 
+              onClick={() => setShowFilters(!showFilters)} 
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-sm flex items-center gap-2"
+            >
+              <Filter size={14} />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
+          </div>
+
+          {/* Filters - Responsive */}
+          <div className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6 ${showFilters ? 'block' : 'hidden md:block'}`}>
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4">
               <div className="flex-1 relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input type="text" placeholder="Search quizzes..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50" />
+                <input 
+                  type="text" 
+                  placeholder="Search quizzes..." 
+                  value={search} 
+                  onChange={(e) => setSearch(e.target.value)} 
+                  className="w-full pl-9 pr-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500/50" 
+                />
               </div>
-              <div className={`flex flex-col md:flex-row gap-3 ${showFilters ? 'flex' : 'hidden md:flex'}`}>
-                <select value={languageFilter} onChange={(e) => setLanguageFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <select 
+                  value={languageFilter} 
+                  onChange={(e) => setLanguageFilter(e.target.value)} 
+                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                >
                   <option value="all">All Languages</option>
                   {LANGUAGES.map(lang => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
                 </select>
-                <select value={conceptFilter} onChange={(e) => setConceptFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
+                <select 
+                  value={conceptFilter} 
+                  onChange={(e) => setConceptFilter(e.target.value)} 
+                  className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                >
                   <option value="all">All Concepts</option>
                   {CONCEPTS.map(concept => <option key={concept} value={concept}>{concept.charAt(0).toUpperCase() + concept.slice(1).replace('_', ' ')}</option>)}
                 </select>
@@ -223,36 +263,67 @@ export default function QuizzesPage() {
             </div>
           </div>
 
-          {/* Quizzes Grid */}
+          {/* Quizzes Grid - Responsive */}
           {paginatedQuizzes.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {paginatedQuizzes.map((quiz) => (
-                  <div key={quiz.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition cursor-pointer" onClick={() => startQuiz(quiz.title, quiz.language, quiz.id)}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="p-2 rounded-lg bg-blue-500/20"><Code size={18} className="text-blue-400" /></div>
-                      {quiz.progress > 0 && (<span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">{quiz.progress}% complete</span>)}
+                  <div 
+                    key={quiz.id} 
+                    className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4 hover:border-blue-500/30 transition cursor-pointer" 
+                    onClick={() => startQuiz(quiz.title, quiz.language, quiz.id)}
+                  >
+                    <div className="flex items-start justify-between mb-2 md:mb-3">
+                      <div className="p-1.5 md:p-2 rounded-lg bg-blue-500/20">
+                        <Code size={16} className="md:text-[18px] text-blue-400" />
+                      </div>
+                      {quiz.progress > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                          {quiz.progress}% complete
+                        </span>
+                      )}
                     </div>
-                    <h3 className="font-semibold text-white mb-1 capitalize">{quiz.title.replace('_', ' ')}</h3>
-                    <div className="flex items-center gap-2 text-xs mb-3">
-                      <span className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300 capitalize">{quiz.language}</span>
-                      <span className={`px-2 py-0.5 rounded-full capitalize ${quiz.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' : quiz.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{quiz.difficulty}</span>
+                    <h3 className="font-semibold text-white text-sm md:text-base mb-1 capitalize">
+                      {quiz.title.replace(/_/g, ' ')}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs mb-2 md:mb-3">
+                      <span className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300 capitalize text-xs">
+                        {quiz.language}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full capitalize text-xs ${
+                        quiz.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' : 
+                        quiz.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' : 
+                        'bg-red-500/20 text-red-400'
+                      }`}>
+                        {quiz.difficulty}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
-                      <div className="flex items-center gap-1"><Clock size={12} /><span>{quiz.estimated_time} min</span></div>
-                      <div className="flex items-center gap-1"><Sparkles size={12} /><span>5 questions</span></div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-3 md:mb-4">
+                      <div className="flex items-center gap-1">
+                        <Clock size={12} />
+                        <span>{quiz.estimated_time} min</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Sparkles size={12} />
+                        <span>5 questions</span>
+                      </div>
                     </div>
-                    <button className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium" disabled={startingQuizId === quiz.id}>
-                      {startingQuizId === quiz.id ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
+                    <button 
+                      className="w-full py-1.5 md:py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium disabled:opacity-50" 
+                      disabled={startingQuizId === quiz.id}
+                    >
+                      {startingQuizId === quiz.id ? (
+                        <Loader2 size={16} className="animate-spin inline mr-2" />
+                      ) : null}
                       {startingQuizId === quiz.id ? 'Starting...' : 'Start Quiz'}
                     </button>
                   </div>
                 ))}
               </div>
               
-              {/* Pagination - Text links only */}
+              {/* Pagination - Responsive text links */}
               {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-6 mt-8 text-sm">
+                <div className="flex justify-center items-center gap-3 md:gap-6 mt-6 md:mt-8 text-xs md:text-sm">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
@@ -274,10 +345,10 @@ export default function QuizzesPage() {
               )}
             </>
           ) : (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12">
-              <Code size={48} className="mx-auto text-gray-600 mb-4" />
-              <h3 className="text-lg font-medium text-white mb-2">No quizzes found</h3>
-              <p className="text-sm text-gray-500">Try selecting a different language or concept.</p>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8 md:py-12">
+              <Code size={40} className="md:text-[48px] mx-auto text-gray-600 mb-3 md:mb-4" />
+              <h3 className="text-base md:text-lg font-medium text-white mb-1 md:mb-2">No quizzes found</h3>
+              <p className="text-xs md:text-sm text-gray-500">Try selecting a different language or concept.</p>
             </div>
           )}
         </div>
