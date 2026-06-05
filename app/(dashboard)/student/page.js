@@ -5,19 +5,13 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  Code, TrendingUp, Award, Clock, Target, BookOpen, 
-  Menu, User, LogOut, Bell, Sparkles, ChevronRight,
-  LayoutDashboard, BarChart3, CheckCircle, AlertCircle,
-  TrendingDown, Calendar, Activity, Brain, Loader2,
-  Star, Zap, Flame, Medal, LineChart, PieChart,
-  Bot, Send, X, HelpCircle, Hexagon, MessageCircle,
-  DollarSign, Globe, Database, Shield, Cpu, Cloud,
-  Minimize
+  Target, BookOpen, ChevronRight,
+  BarChart3, AlertCircle, Brain, Loader2,
+  Flame, LineChart, Bot, Send, X, HelpCircle, Hexagon, Minimize
 } from 'lucide-react';
-import { signOut } from 'next-auth/react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  LineChart as ReLineChart, Line, Area, AreaChart, PieChart as RePieChart, Pie, Cell
+  AreaChart, Area
 } from 'recharts';
 
 const StarBackground = () => {
@@ -41,61 +35,6 @@ const StarBackground = () => {
     return () => window.removeEventListener('resize', setSize);
   }, []);
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
-};
-
-const Sidebar = ({ isOpen, onClose }) => {
-  const { data: session } = useSession();
-  const router = useRouter();
-  const role = session?.user?.role;
-  const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/'); };
-  const navItems = [
-    { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/student/quizzes', label: 'Quizzes', icon: BookOpen },
-    { href: '/student/gaps', label: 'Knowledge Gaps', icon: Target },
-    { href: '/student/recommendations', label: 'Recommendations', icon: Sparkles },
-    { href: '/student/profile', label: 'Profile', icon: User },
-  ];
-  
-  return (
-    <>
-      {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
-            <span className="text-xl font-bold text-white">PACT</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">Student Portal</p>
-        </div>
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
-          </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-            <LogOut size={16} />
-            Sign Out
-          </button>
-        </div>
-      </div>
-    </>
-  );
 };
 
 // Stat Card Component
@@ -315,7 +254,6 @@ const getGreeting = () => {
 export default function StudentDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   
   // FIX: Initialize loading to false so the UI renders immediately
   const [loading, setLoading] = useState(false); 
@@ -348,7 +286,6 @@ export default function StudentDashboard() {
       router.push('/login');
       return;
     }
-    // Only fetch data if we are authenticated AND haven't loaded data yet (or session changed)
     if (status === 'authenticated' && session?.user?.id) {
       fetchDashboardData();
     }
@@ -359,12 +296,7 @@ export default function StudentDashboard() {
   }, [messages]);
 
   const fetchDashboardData = async () => {
-    // FIX: Don't set setLoading(true) here immediately if you want the skeleton to show.
-    // Or, keep it true but ensure the initial render isn't blocked by it.
-    // Since we initialized loading to false, we can set it to true now for subsequent refreshes
-    // but the first render will already be visible.
     setLoading(true);
-    
     try {
       const studentId = session.user.id;
       
@@ -561,195 +493,134 @@ export default function StudentDashboard() {
     }
   };
 
-  // FIX: Only show full screen loader if Session is still checking status.
-  // Do NOT show it if we are just fetching dashboard data (loading state).
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
-  }
-
+  // DashboardLayout already handles session loading and unauthenticated states.
+  // We don't block the UI here while fetching dashboard data to prevent flashing/disappearing.
+  
   const greeting = getGreeting();
   const studentName = session?.user?.name?.split(' ')[0] || 'Student';
   const { performance, conceptMastery, primaryGaps, totalGaps } = dashboardData;
-
-  // Prepare chart data
   const hasData = conceptMastery.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-white">
+    <>
       <StarBackground />
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="md:ml-64">
-        {/* Fixed Header */}
-        <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
-          <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
-            </button>
-            <div className="hidden md:flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-blue-500/20">
-                <LayoutDashboard size={18} className="text-blue-400" />
-              </div>
-              <h1 className="text-xl font-semibold text-white">Learning Analytics</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-white/10 relative">
-                <Bell size={18} className="text-gray-400" />
-              </button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-blue-400" />
-                </div>
-                <span className="text-sm text-white hidden sm:inline">{studentName}</span>
-              </div>
-            </div>
-          </div>
+      {/* Main Content Wrapper - relies on DashboardLayout's <main> padding */}
+      <div className="relative z-10 space-y-8">
+        
+        {/* Welcome Section */}
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            {greeting}, {studentName}!
+          </h2>
+          <p className="text-sm md:text-base text-gray-400 mt-2">
+            {hasData 
+              ? `Your overall mastery is ${performance.overallMastery}% across ${conceptMastery.length} concepts. Keep up the great work!`
+              : "Complete your first quiz to unlock personalized learning analytics and AI-powered insights."}
+          </p>
         </div>
 
-        {/* Main Content */}
-        <div className="pt-20 px-4 md:px-6 pb-6">
-          
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              {greeting}, {studentName}!
-            </h2>
-            <p className="text-sm md:text-base text-gray-400 mt-2">
-              {hasData 
-                ? `Your overall mastery is ${performance.overallMastery}% across ${conceptMastery.length} concepts. Keep up the great work!`
-                : "Complete your first quiz to unlock personalized learning analytics and AI-powered insights."}
-            </p>
-          </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <StatCard title="Overall Mastery" value={`${performance.overallMastery}%`} icon={Brain} color="blue" />
+          <StatCard title="Identified Gaps" value={totalGaps} subtitle={`${primaryGaps.length} high priority`} icon={Target} color="red" />
+          <StatCard title="Quizzes Completed" value={performance.completedQuizzes} subtitle={`${performance.totalQuizzes} total attempts`} icon={BookOpen} color="green" />
+          <StatCard title="Longest Streak" value={performance.longestStreak} subtitle="Days in a row" icon={Flame} color="orange" />
+        </div>
 
-          {/* Stats Grid - Updated Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
-            <StatCard 
-              title="Overall Mastery"
-              value={`${performance.overallMastery}%`}
-              icon={Brain}
-              color="blue"
-            />
-            <StatCard 
-              title="Identified Gaps"
-              value={totalGaps}
-              subtitle={`${primaryGaps.length} high priority`}
-              icon={Target}
-              color="red"
-            />
-            <StatCard 
-              title="Quizzes Completed"
-              value={performance.completedQuizzes}
-              subtitle={`${performance.totalQuizzes} total attempts`}
-              icon={BookOpen}
-              color="green"
-            />
-            <StatCard 
-              title="Longest Streak"
-              value={performance.longestStreak}
-              subtitle="Days in a row"
-              icon={Flame}
-              color="orange"
-            />
-          </div>
-
-          {/* Charts Section - 3 Visualizations */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Bar Chart - Concept Performance */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 size={18} className="text-blue-400" />
-                  <h3 className="font-semibold text-white">Concept Performance</h3>
-                </div>
-                <span className="text-xs text-gray-500">Mastery by Concept</span>
-              </div>
-              {hasData ? (
-                <PerformanceChart data={conceptMastery} />
-              ) : (
-                <div className="h-[300px] flex items-center justify-center">
-                  <div className="text-center">
-                    <BarChart3 size={48} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-500">No data available yet</p>
-                    <p className="text-xs text-gray-600 mt-1">Complete quizzes to see your performance</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Area Chart - Progress Trend */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <LineChart size={18} className="text-green-400" />
-                  <h3 className="font-semibold text-white">Mastery Distribution</h3>
-                </div>
-                <span className="text-xs text-gray-500">Sorted by mastery level</span>
-              </div>
-              {hasData ? (
-                <ProgressAreaChart concepts={conceptMastery} />
-              ) : (
-                <div className="h-[250px] flex items-center justify-center">
-                  <div className="text-center">
-                    <LineChart size={48} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-500">No data available yet</p>
-                    <p className="text-xs text-gray-600 mt-1">Start learning to see your progress</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Hexagonal Grid Visualization */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-8">
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bar Chart */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Hexagon size={18} className="text-purple-400" />
-                <h3 className="font-semibold text-white">Concept Mastery Hexagon</h3>
+                <BarChart3 size={18} className="text-blue-400" />
+                <h3 className="font-semibold text-white">Concept Performance</h3>
               </div>
-              <span className="text-xs text-gray-500">Top 6 concepts by mastery</span>
+              <span className="text-xs text-gray-500">Mastery by Concept</span>
             </div>
             {hasData ? (
-              <HexagonalGrid concepts={conceptMastery} />
+              <PerformanceChart data={conceptMastery} />
             ) : (
-              <div className="py-12 text-center">
-                <Hexagon size={48} className="mx-auto text-gray-600 mb-3" />
-                <p className="text-sm text-gray-500">No concept data available</p>
-                <p className="text-xs text-gray-600 mt-1">Take quizzes to build your mastery profile</p>
+              <div className="h-[300px] flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 size={48} className="mx-auto text-gray-600 mb-3" />
+                  <p className="text-sm text-gray-500">No data available yet</p>
+                  <p className="text-xs text-gray-600 mt-1">Complete quizzes to see your performance</p>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Knowledge Gaps Section */}
-          {primaryGaps && primaryGaps.length > 0 && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-400 mb-2">Priority Knowledge Gaps</p>
-                  <div className="flex flex-wrap gap-2">
-                    {primaryGaps.slice(0, 4).map((gap, idx) => (
-                      <span key={idx} className="px-2 py-1 rounded-lg bg-red-500/20 text-red-300 text-xs">
-                        {gap.concept?.replace(/_/g, ' ')}
-                      </span>
-                    ))}
-                  </div>
-                  <Link href="/student/gaps">
-                    <button className="mt-3 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
-                      View all gaps <ChevronRight size={12} />
-                    </button>
-                  </Link>
+          {/* Area Chart */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <LineChart size={18} className="text-green-400" />
+                <h3 className="font-semibold text-white">Mastery Distribution</h3>
+              </div>
+              <span className="text-xs text-gray-500">Sorted by mastery level</span>
+            </div>
+            {hasData ? (
+              <ProgressAreaChart concepts={conceptMastery} />
+            ) : (
+              <div className="h-[250px] flex items-center justify-center">
+                <div className="text-center">
+                  <LineChart size={48} className="mx-auto text-gray-600 mb-3" />
+                  <p className="text-sm text-gray-500">No data available yet</p>
+                  <p className="text-xs text-gray-600 mt-1">Start learning to see your progress</p>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Hexagonal Grid */}
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Hexagon size={18} className="text-purple-400" />
+              <h3 className="font-semibold text-white">Concept Mastery Hexagon</h3>
+            </div>
+            <span className="text-xs text-gray-500">Top 6 concepts by mastery</span>
+          </div>
+          {hasData ? (
+            <HexagonalGrid concepts={conceptMastery} />
+          ) : (
+            <div className="py-12 text-center">
+              <Hexagon size={48} className="mx-auto text-gray-600 mb-3" />
+              <p className="text-sm text-gray-500">No concept data available</p>
+              <p className="text-xs text-gray-600 mt-1">Take quizzes to build your mastery profile</p>
             </div>
           )}
         </div>
+
+        {/* Knowledge Gaps */}
+        {primaryGaps && primaryGaps.length > 0 && (
+          <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle size={20} className="text-red-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-400 mb-2">Priority Knowledge Gaps</p>
+                <div className="flex flex-wrap gap-2">
+                  {primaryGaps.slice(0, 4).map((gap, idx) => (
+                    <span key={idx} className="px-2 py-1 rounded-lg bg-red-500/20 text-red-300 text-xs">
+                      {gap.concept?.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+                <Link href="/student/gaps">
+                  <button className="mt-3 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                    View all gaps <ChevronRight size={12} />
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* AI Assistant - Integrated Section */}
+      {/* AI Assistant */}
       <AIAssistantSection 
         messages={messages}
         input={input}
@@ -759,6 +630,6 @@ export default function StudentDashboard() {
         messagesEndRef={messagesEndRef}
         handleKeyPress={handleKeyPress}
       />
-    </div>
+    </>
   );
 }
