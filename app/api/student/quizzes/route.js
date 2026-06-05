@@ -14,6 +14,17 @@ export async function GET(request) {
     const languageFilter = searchParams.get('language') || 'all';
     const conceptFilter = searchParams.get('concept') || 'all';
 
+    // All 7 languages mapping
+    const languageMapping = {
+      'python': 'python',
+      'javascript': 'javascript',
+      'java': 'java',
+      'c++': 'cpp',
+      'typescript': 'typescript',
+      'go': 'go',
+      'rust': 'rust'
+    };
+
     let queryText = `
       SELECT 
         c.concept_id as id,
@@ -46,19 +57,40 @@ export async function GET(request) {
     queryText += ` ORDER BY c.difficulty LIMIT 50`;
     
     const result = await query(queryText, params);
+    
+    // If no concepts found for the selected language, create dynamic concepts
     let quizzes = result.rows;
+    
+    if (quizzes.length === 0 && languageFilter !== 'all') {
+      // Generate dynamic concepts for the selected language
+      const dynamicConcepts = ['variables', 'data_types', 'operators', 'conditionals', 'loops', 'functions', 'arrays', 'strings'];
+      quizzes = dynamicConcepts.map((concept, idx) => ({
+        id: idx + 1000,
+        title: concept,
+        language: languageFilter,
+        difficulty: idx < 3 ? 'beginner' : idx < 6 ? 'intermediate' : 'advanced',
+        question_count: 5,
+        estimated_time: 5,
+        level: idx < 3 ? 1 : idx < 6 ? 2 : 3,
+        progress: 0
+      }));
+    }
 
     // Get user's progress for each concept
     for (let quiz of quizzes) {
-      const progressResult = await query(`
-        SELECT COUNT(DISTINCT r.response_id) as completed
-        FROM responses r
-        JOIN quiz_sessions qs ON r.session_id = qs.session_id
-        WHERE r.student_id = $1 AND qs.concept = $2 AND r.is_correct = true
-      `, [studentId, quiz.title]);
-      
-      const completed = parseInt(progressResult.rows[0]?.completed || 0);
-      quiz.progress = Math.min(100, Math.floor((completed / 5) * 100));
+      try {
+        const progressResult = await query(`
+          SELECT COUNT(DISTINCT r.response_id) as completed
+          FROM responses r
+          JOIN quiz_sessions qs ON r.session_id = qs.session_id
+          WHERE r.student_id = $1 AND qs.concept = $2 AND r.is_correct = true
+        `, [studentId, quiz.title]);
+        
+        const completed = parseInt(progressResult.rows[0]?.completed || 0);
+        quiz.progress = Math.min(100, Math.floor((completed / 5) * 100));
+      } catch (err) {
+        quiz.progress = 0;
+      }
     }
 
     return NextResponse.json({ quizzes });

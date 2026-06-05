@@ -5,7 +5,8 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Search, Clock, BookOpen, ChevronRight, Filter,
-  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2, LayoutDashboard, Target
+  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2, LayoutDashboard, Target,
+  ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -58,7 +59,15 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 // All 7 programming languages
-const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'TypeScript', 'Go', 'Rust'];
+const LANGUAGES = [
+  { value: 'python', label: 'Python' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'java', label: 'Java' },
+  { value: 'cpp', label: 'C++' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'go', label: 'Go' },
+  { value: 'rust', label: 'Rust' }
+];
 const CONCEPTS = ['variables', 'data_types', 'operators', 'conditionals', 'loops', 'functions', 'arrays', 'strings', 'classes', 'inheritance'];
 
 export default function QuizzesPage() {
@@ -124,14 +133,13 @@ export default function QuizzesPage() {
         throw new Error('No session_id returned');
       }
       
-      // Store quiz data
       const quizData = {
         all_questions: data.all_questions,
         current_question: data.current_question,
         total_questions: data.total_questions,
         score: 0,
         questions_answered: 0,
-        time_left: 300 // 5 minutes = 300 seconds
+        time_left: 300
       };
       
       const storageKey = `quiz_${data.session_id}`;
@@ -147,7 +155,6 @@ export default function QuizzesPage() {
     }
   };
 
-  // Filter based on search
   useEffect(() => {
     if (!search) {
       setFilteredQuizzes(quizzes);
@@ -161,7 +168,6 @@ export default function QuizzesPage() {
     setCurrentPage(1);
   }, [search, quizzes]);
 
-  // Pagination calculations
   const totalPages = Math.ceil(filteredQuizzes.length / itemsPerPage);
   const paginatedQuizzes = filteredQuizzes.slice(
     (currentPage - 1) * itemsPerPage,
@@ -192,7 +198,7 @@ export default function QuizzesPage() {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-white">Practice Quizzes</h1>
-              <p className="text-sm text-gray-400 mt-1">Test your knowledge on programming concepts</p>
+              <p className="text-sm text-gray-400 mt-1">Test your knowledge on programming concepts across 7 languages</p>
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden p-2 rounded-lg border border-white/10 hover:bg-white/10"><Filter size={18} className="text-gray-400" /></button>
           </div>
@@ -207,7 +213,7 @@ export default function QuizzesPage() {
               <div className={`flex flex-col md:flex-row gap-3 ${showFilters ? 'flex' : 'hidden md:flex'}`}>
                 <select value={languageFilter} onChange={(e) => setLanguageFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
                   <option value="all">All Languages</option>
-                  {LANGUAGES.map(lang => <option key={lang} value={lang.toLowerCase()}>{lang}</option>)}
+                  {LANGUAGES.map(lang => <option key={lang.value} value={lang.value}>{lang.label}</option>)}
                 </select>
                 <select value={conceptFilter} onChange={(e) => setConceptFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
                   <option value="all">All Concepts</option>
@@ -244,33 +250,23 @@ export default function QuizzesPage() {
                 ))}
               </div>
               
-              {/* Pagination */}
+              {/* Pagination - Text links only */}
               {totalPages > 1 && (
-                <div className="flex justify-center gap-2 mt-8">
+                <div className="flex justify-center items-center gap-6 mt-8 text-sm">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`text-gray-400 hover:text-white transition ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Previous
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 rounded-lg transition ${
-                        currentPage === page
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  <span className="text-gray-500">
+                    Page {currentPage} of {totalPages}
+                  </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`text-gray-400 hover:text-white transition ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     Next
                   </button>
@@ -281,7 +277,7 @@ export default function QuizzesPage() {
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12">
               <Code size={48} className="mx-auto text-gray-600 mb-4" />
               <h3 className="text-lg font-medium text-white mb-2">No quizzes found</h3>
-              <p className="text-sm text-gray-500">Try adjusting your filters or check back later.</p>
+              <p className="text-sm text-gray-500">Try selecting a different language or concept.</p>
             </div>
           )}
         </div>
