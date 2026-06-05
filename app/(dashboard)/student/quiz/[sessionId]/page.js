@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
-// StarBackground and Sidebar components (same as before)
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -50,9 +49,39 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10"><div className="flex items-center gap-2"><div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div><span className="text-xl font-bold text-white">PACT</span></div><p className="text-xs text-gray-500 mt-2">Student Portal</p></div>
-        <nav className="p-3 space-y-1">{navItems.map((item) => { const Icon = item.icon; return (<Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"><Icon size={18} /><span className="text-sm">{item.label}</span></Link>); })}</nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10"><div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div></div><button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button></div>
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
+            <span className="text-xl font-bold text-white">PACT</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Student Portal</p>
+        </div>
+        <nav className="p-3 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <Icon size={18} />
+                <span className="text-sm">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <User className="h-4 w-4 text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
+              <p className="text-xs text-gray-500 capitalize">{role}</p>
+            </div>
+          </div>
+          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
+            <LogOut size={16} />
+            Sign Out
+          </button>
+        </div>
       </div>
     </>
   );
@@ -112,15 +141,6 @@ export default function QuizPage() {
         setQuizConcept(data.concept || data.all_questions?.[0]?.concept || 'general');
         setQuizLanguage(data.language || data.all_questions?.[0]?.language || 'python');
         setAllAnswers(data.answers || []);
-      } else {
-        // Try to load from API
-        const response = await fetch(`/api/student/quiz/load?sessionId=${sessionId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setTotalQuestions(data.total_questions || 0);
-          setScore(data.score || 0);
-          setQuestionsAnswered(data.questions_answered || 0);
-        }
       }
     } catch (error) {
       console.error('Failed to load quiz data:', error);
@@ -199,7 +219,6 @@ export default function QuizPage() {
         explanation: result.explanation
       });
       
-      // Store answer
       setAllAnswers(prev => [...prev, {
         questionId: currentQuestion?.id,
         question: currentQuestion?.text,
@@ -280,7 +299,6 @@ export default function QuizPage() {
             <p className="text-3xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
             <p className="text-gray-400 mb-6">You scored {percentage}%</p>
 
-            {/* Save & Analyze Button */}
             {!savedToDatabase ? (
               <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl p-4 mb-6 border border-purple-500/30">
                 <p className="text-sm text-purple-300 mb-3">✨ Get AI-Powered Insights</p>
@@ -305,7 +323,8 @@ export default function QuizPage() {
                   Back to Dashboard
                 </button>
               </Link>
-              <Link href="/student/recommendations">
+              {/* Pass sessionId to recommendations page */}
+              <Link href={`/student/recommendations?sessionId=${sessionId}`}>
                 <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">
                   View Recommendations
                 </button>

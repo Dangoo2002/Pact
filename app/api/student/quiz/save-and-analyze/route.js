@@ -14,17 +14,25 @@ export async function POST(request) {
     // Generate AI analysis
     const analysis = await generateAIAnalysis(studentId, concept, answers, score, totalQuestions);
 
-    // Store analysis in database
+    // Store analysis in database with session_id link
     await query(`
-      INSERT INTO gap_analysis (student_id, concept, analysis_data, created_at)
-      VALUES ($1, $2, $3, NOW())
-      ON CONFLICT (student_id, concept) 
+      INSERT INTO gap_analysis (student_id, concept, session_id, analysis_data, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (student_id, concept, session_id) 
       DO UPDATE SET analysis_data = EXCLUDED.analysis_data, created_at = NOW()
-    `, [studentId, concept, JSON.stringify(analysis)]);
+    `, [studentId, concept, sessionId, JSON.stringify(analysis)]);
+
+    // Also update the session to mark that analysis is complete
+    await query(`
+      UPDATE quiz_sessions 
+      SET analysis_complete = true, analysis_data = $1
+      WHERE session_id = $2
+    `, [JSON.stringify(analysis), sessionId]);
 
     return NextResponse.json({
       success: true,
       analysis: analysis,
+      session_id: sessionId,
       message: "Quiz analysis complete"
     });
   } catch (error) {
@@ -48,20 +56,21 @@ ${JSON.stringify(answers.map(a => ({
   correct_answer: a.correct_answer
 })), null, 2)}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with this exact structure:
 {
   "mastery_level": "beginner/intermediate/advanced",
+  "accuracy_percentage": ${accuracy},
   "strengths": ["strength 1", "strength 2"],
   "weaknesses": ["weakness 1", "weakness 2"],
   "recommendations": [
     {
-      "title": "resource title",
+      "title": "specific resource title",
       "type": "video/article/exercise",
-      "url": "working URL",
+      "url": "working educational URL",
       "description": "why this helps"
     }
   ],
-  "next_steps": ["step 1", "step 2"]
+  "next_steps": ["step 1", "step 2", "step 3"]
 }`;
 
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
@@ -73,7 +82,7 @@ Return ONLY valid JSON:
     body: JSON.stringify({
       model: 'mistral-small-latest',
       messages: [
-        { role: 'system', content: 'Return ONLY valid JSON. No other text.' },
+        { role: 'system', content: 'Return ONLY valid JSON. No other text. Use real educational URLs.' },
         { role: 'user', content: prompt }
       ],
       temperature: 0.3,
@@ -87,9 +96,17 @@ Return ONLY valid JSON:
   
   return match ? JSON.parse(match[0]) : {
     mastery_level: accuracy >= 70 ? 'intermediate' : 'beginner',
+    accuracy_percentage: accuracy,
     strengths: [],
     weaknesses: [`Need more practice with ${concept}`],
-    recommendations: [],
-    next_steps: [`Review ${concept} fundamentals`]
+    recommendations: [
+      {
+        title: `${concept} Tutorial`,
+        type: "tutorial",
+        url: `https://www.w3schools.com/python/python_${concept.toLowerCase()}.asp`,
+        description: `Learn ${concept} fundamentals`
+      }
+    ],
+    next_steps: [`Review ${concept} basics`, `Take another quiz on ${concept}`]
   };
 }
