@@ -12,7 +12,6 @@ export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    // Redirect if not authenticated
     if (status === 'unauthenticated') {
       router.push('/login');
     }
@@ -47,15 +46,12 @@ export default function DashboardLayout({ children }) {
         </div>
       )}
 
-      {/* Main Content Area with margin for fixed sidebar */}
-      <div className="md:ml-64">
-        {/* Fixed Navbar */}
-        <div className="fixed top-0 right-0 left-0 md:left-64 z-30 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
-          <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        </div>
-        
-        {/* Main Content with top padding to account for fixed navbar */}
-        <main className="pt-16">
+      {/* Fixed Navbar */}
+      <Navbar onMenuClick={() => setSidebarOpen(true)} />
+
+      {/* Main Content with padding for fixed navbar and sidebar */}
+      <div className="md:ml-64 pt-16">
+        <main className="p-4 md:p-6">
           {children}
         </main>
       </div>
