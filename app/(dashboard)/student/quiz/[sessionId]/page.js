@@ -6,10 +6,11 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
-  Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen
+  Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
+// StarBackground and Sidebar components (same as before)
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function QuizPage() {
   
   const [allQuestions, setAllQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [codeAnswer, setCodeAnswer] = useState('');
   const [feedback, setFeedback] = useState(null);
@@ -78,6 +80,11 @@ export default function QuizPage() {
   const [timeLeft, setTimeLeft] = useState(600);
   const [aiHint, setAiHint] = useState(null);
   const [gettingHint, setGettingHint] = useState(false);
+  const [allAnswers, setAllAnswers] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedToDatabase, setSavedToDatabase] = useState(false);
+  const [quizConcept, setQuizConcept] = useState('');
+  const [quizLanguage, setQuizLanguage] = useState('');
 
   useEffect(() => {
     if (!session) {
@@ -92,87 +99,28 @@ export default function QuizPage() {
   const loadQuizData = async () => {
     setLoading(true);
     try {
-      // Try to get from sessionStorage first
-      let quizData = sessionStorage.getItem(`quiz_${sessionId}`);
-      
-      if (!quizData) {
-        quizData = localStorage.getItem(`quiz_${sessionId}`);
-      }
-      
-      if (quizData) {
-        const data = JSON.parse(quizData);
-        console.log('Loaded from storage:', data);
+      const storedData = sessionStorage.getItem(`quiz_${sessionId}`);
+      if (storedData) {
+        const data = JSON.parse(storedData);
         setAllQuestions(data.all_questions || []);
         setCurrentQuestion(data.current_question || null);
         setTotalQuestions(data.total_questions || 0);
         setScore(data.score || 0);
         setQuestionsAnswered(data.questions_answered || 0);
+        setCurrentQuestionIndex(data.questions_answered || 0);
         setTimeLeft(data.time_left || 600);
+        setQuizConcept(data.concept || data.all_questions?.[0]?.concept || 'general');
+        setQuizLanguage(data.language || data.all_questions?.[0]?.language || 'python');
+        setAllAnswers(data.answers || []);
       } else {
-        // Mock questions for testing if no data
-        console.log('No data in storage, using mock questions');
-        const mockQuestions = [
-          {
-            id: 0,
-            text: "What is a variable in programming?",
-            options: ["A container for storing data", "A type of function", "A loop structure", "An error handler"],
-            correct_answer: "A container for storing data",
-            explanation: "Variables store data in memory.",
-            type: "multiple_choice",
-            concept: "variables",
-            language: "python",
-            difficulty: 1
-          },
-          {
-            id: 1,
-            text: "Which of these is a valid variable name?",
-            options: ["2var", "_myVar", "my-var", "my var"],
-            correct_answer: "_myVar",
-            explanation: "Variable names can start with underscore.",
-            type: "multiple_choice",
-            concept: "variables",
-            language: "python",
-            difficulty: 1
-          },
-          {
-            id: 2,
-            text: "What does the = operator do?",
-            options: ["Comparison", "Assignment", "Equality", "Declaration"],
-            correct_answer: "Assignment",
-            explanation: "= assigns a value to a variable.",
-            type: "multiple_choice",
-            concept: "operators",
-            language: "python",
-            difficulty: 1
-          },
-          {
-            id: 3,
-            text: "What is the correct way to create a variable in Python?",
-            options: ["var x = 5", "x = 5", "int x = 5", "x := 5"],
-            correct_answer: "x = 5",
-            explanation: "Python uses simple assignment.",
-            type: "multiple_choice",
-            concept: "variables",
-            language: "python",
-            difficulty: 1
-          },
-          {
-            id: 4,
-            text: "Which data type is used for whole numbers?",
-            options: ["float", "string", "int", "boolean"],
-            correct_answer: "int",
-            explanation: "int stores integer values.",
-            type: "multiple_choice",
-            concept: "data_types",
-            language: "python",
-            difficulty: 1
-          }
-        ];
-        setAllQuestions(mockQuestions);
-        setCurrentQuestion(mockQuestions[0]);
-        setTotalQuestions(mockQuestions.length);
-        setQuestionsAnswered(0);
-        setScore(0);
+        // Try to load from API
+        const response = await fetch(`/api/student/quiz/load?sessionId=${sessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTotalQuestions(data.total_questions || 0);
+          setScore(data.score || 0);
+          setQuestionsAnswered(data.questions_answered || 0);
+        }
       }
     } catch (error) {
       console.error('Failed to load quiz data:', error);
@@ -180,26 +128,6 @@ export default function QuizPage() {
       setLoading(false);
     }
   };
-
-  const saveProgress = () => {
-    if (!allQuestions.length) return;
-    const data = {
-      all_questions: allQuestions,
-      current_question: currentQuestion,
-      total_questions: totalQuestions,
-      score: score,
-      questions_answered: questionsAnswered,
-      time_left: timeLeft
-    };
-    sessionStorage.setItem(`quiz_${sessionId}`, JSON.stringify(data));
-    localStorage.setItem(`quiz_${sessionId}`, JSON.stringify(data));
-  };
-
-  useEffect(() => {
-    if (!loading && allQuestions.length > 0) {
-      saveProgress();
-    }
-  }, [currentQuestion, score, questionsAnswered]);
 
   useEffect(() => {
     if (quizCompleted || loading) return;
@@ -250,79 +178,89 @@ export default function QuizPage() {
     setSubmitting(true);
     setAiHint(null);
     
-    let isCorrect = false;
-    let explanation = '';
-    
-    if (currentQuestion && selectedAnswer) {
-      isCorrect = (selectedAnswer === currentQuestion.correct_answer);
-      explanation = currentQuestion.explanation || (isCorrect ? 'Correct!' : 'Incorrect. Review the material.');
-    }
-    
-    setFeedback({
-      isCorrect: isCorrect,
-      explanation: explanation
-    });
-    
-    const newScore = score + (isCorrect ? 1 : 0);
-    const newQuestionsAnswered = questionsAnswered + 1;
-    
-    setScore(newScore);
-    setQuestionsAnswered(newQuestionsAnswered);
-    
-    const quizComplete = newQuestionsAnswered >= totalQuestions;
-    
-    if (quizComplete) {
-      setQuizCompleted(true);
-      setSubmitting(false);
-      
-      // Save final results to database
-      try {
-        await fetch('/api/student/quiz/submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: sessionId,
-            questionIndex: questionsAnswered,
-            answer: selectedAnswer,
-            codeSubmission: codeAnswer,
-            allQuestions: allQuestions,
-            quizCompleted: true,
-            finalScore: newScore,
-            totalQuestions: totalQuestions
-          })
-        });
-      } catch (error) {
-        console.error('Failed to save results:', error);
-      }
-    } else {
-      const nextIndex = questionsAnswered + 1;
-      const nextQ = allQuestions[nextIndex];
-      
-      setTimeout(() => {
-        setCurrentQuestion(nextQ);
-        setSelectedAnswer(null);
-        setCodeAnswer('');
-        setFeedback(null);
-        setSubmitting(false);
-      }, 2000);
-    }
-    
-    // Save response to database
     try {
-      await fetch('/api/student/quiz/submit', {
+      const response = await fetch('/api/student/quiz/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: sessionId,
-          questionIndex: questionsAnswered,
+          questionId: currentQuestion?.id,
+          questionIndex: currentQuestionIndex,
           answer: selectedAnswer,
           codeSubmission: codeAnswer,
-          allQuestions: allQuestions,
-          isCorrect: isCorrect
+          allQuestions: allQuestions
         })
       });
+      
+      const result = await response.json();
+      
+      setFeedback({
+        isCorrect: result.is_correct,
+        explanation: result.explanation
+      });
+      
+      // Store answer
+      setAllAnswers(prev => [...prev, {
+        questionId: currentQuestion?.id,
+        question: currentQuestion?.text,
+        answer: selectedAnswer || codeAnswer,
+        isCorrect: result.is_correct,
+        correct_answer: currentQuestion?.correct_answer
+      }]);
+      
+      const newScore = result.current_score || score + (result.is_correct ? 1 : 0);
+      const newQuestionsAnswered = result.questions_answered || questionsAnswered + 1;
+      
+      setScore(newScore);
+      setQuestionsAnswered(newQuestionsAnswered);
+      
+      if (result.quiz_completed) {
+        setQuizCompleted(true);
+        setSubmitting(false);
+      } else if (result.next_question) {
+        setTimeout(() => {
+          setCurrentQuestion(result.next_question);
+          setCurrentQuestionIndex(newQuestionsAnswered);
+          setSelectedAnswer(null);
+          setCodeAnswer('');
+          setFeedback(null);
+          setSubmitting(false);
+        }, 2000);
+      } else {
+        setSubmitting(false);
+      }
     } catch (error) {
-      console.error('Failed to save response:', error);
+      console.error('Submit error:', error);
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveAndAnalyze = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/student/quiz/save-and-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: sessionId,
+          studentId: session.user.id,
+          concept: quizConcept,
+          language: quizLanguage,
+          questions: allQuestions,
+          answers: allAnswers,
+          score: score,
+          totalQuestions: totalQuestions
+        })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setSavedToDatabase(true);
+      }
+    } catch (error) {
+      console.error('Save failed:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -341,9 +279,37 @@ export default function QuizPage() {
             <h2 className="text-2xl font-bold text-white mb-2">Quiz Completed!</h2>
             <p className="text-3xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
             <p className="text-gray-400 mb-6">You scored {percentage}%</p>
+
+            {/* Save & Analyze Button */}
+            {!savedToDatabase ? (
+              <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl p-4 mb-6 border border-purple-500/30">
+                <p className="text-sm text-purple-300 mb-3">✨ Get AI-Powered Insights</p>
+                <button
+                  onClick={handleSaveAndAnalyze}
+                  disabled={isSaving}
+                  className="w-full py-2 rounded-lg bg-purple-500/30 border border-purple-500/50 text-white hover:bg-purple-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {isSaving ? 'Analyzing with AI...' : 'Save & Get AI Recommendations'}
+                </button>
+              </div>
+            ) : (
+              <div className="bg-green-500/10 rounded-xl p-3 mb-6 border border-green-500/30">
+                <p className="text-sm text-green-400">✅ Analysis complete! Check your recommendations.</p>
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/student"><button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">Back to Dashboard</button></Link>
-              <Link href="/student/recommendations"><button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">View Recommendations</button></Link>
+              <Link href="/student">
+                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">
+                  Back to Dashboard
+                </button>
+              </Link>
+              <Link href="/student/recommendations">
+                <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">
+                  View Recommendations
+                </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -359,7 +325,6 @@ export default function QuizPage() {
     <div className="min-h-screen bg-[#0A1628] text-white relative">
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
       <div className="md:ml-64">
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
@@ -367,16 +332,13 @@ export default function QuizPage() {
             <div className="flex items-center gap-3"><div className="flex items-center gap-2"><Clock size={16} className="text-blue-400" /><span className={timeLeft < 60 ? 'text-red-400' : 'text-gray-300'}>{formatTime(timeLeft)}</span></div></div>
           </div>
         </div>
-
         <div className="p-4 md:p-6">
           <div className="max-w-3xl mx-auto">
             <Link href="/student/quizzes" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-white mb-4 transition"><ChevronLeft size={16} /> Back to Quizzes</Link>
-
             <div className="mb-6">
               <div className="flex justify-between text-sm text-gray-400 mb-2"><span>Question {questionsAnswered + 1} of {totalQuestions}</span><span>Score: {score}</span></div>
               <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} /></div>
             </div>
-
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
                 <div className="flex items-center gap-2"><Code size={18} className="text-blue-400" /><span className="text-sm font-medium text-gray-300">Question {questionsAnswered + 1}</span></div>
@@ -385,11 +347,8 @@ export default function QuizPage() {
                   {gettingHint ? 'Getting hint...' : 'Get AI Hint'}
                 </button>
               </div>
-              
               <h3 className="text-lg font-medium text-white mb-6">{currentQuestion?.text}</h3>
-              
               {aiHint && (<div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20"><p className="text-sm text-purple-300">{aiHint}</p></div>)}
-              
               {currentQuestion?.type !== 'code_writing' && currentQuestion?.options && (
                 <div className="space-y-3 mb-6">
                   {currentQuestion.options.map((option, idx) => (
@@ -400,20 +359,17 @@ export default function QuizPage() {
                   ))}
                 </div>
               )}
-              
               {currentQuestion?.type === 'code_writing' && (
                 <div className="mb-6">
                   <textarea value={codeAnswer} onChange={(e) => setCodeAnswer(e.target.value)} disabled={feedback !== null} rows={8} className="w-full font-mono text-sm p-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50" placeholder='def solution():\n    # Write your code here\n    pass' />
                 </div>
               )}
-              
               {feedback && (
                 <div className={`p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                   <p className={`text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>{feedback.isCorrect ? 'Correct!' : 'Incorrect'}</p>
                   <p className="text-sm text-gray-400">{feedback.explanation}</p>
                 </div>
               )}
-              
               <button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50">
                 {submitting ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
                 {submitting ? 'Processing...' : feedback ? 'Next Question →' : 'Submit Answer'}
