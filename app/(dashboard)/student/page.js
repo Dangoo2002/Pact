@@ -11,7 +11,7 @@ import {
   TrendingDown, Calendar, Activity, Brain, Loader2,
   Star, Zap, Flame, Medal, LineChart,
   Bot, Send, X, Minimize2, Maximize2, Copy, Check,
-  HelpCircle, Database, PieChart, Hexagon, CircleDot
+  HelpCircle, Database, PieChart, Hexagon, CircleDot, MessageCircle
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -93,6 +93,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
+// Progress Bar Component
 const ProgressBar = ({ value, max = 100, color = 'blue', label }) => {
   const percentage = Math.min(100, (value / max) * 100);
   const colorClass = {
@@ -117,6 +118,7 @@ const ProgressBar = ({ value, max = 100, color = 'blue', label }) => {
   );
 };
 
+// Stat Card Component
 const StatCard = ({ title, value, subtitle, icon: Icon }) => (
   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4 hover:border-blue-500/30 transition-all duration-300">
     <div className="flex items-center justify-between mb-2">
@@ -130,6 +132,112 @@ const StatCard = ({ title, value, subtitle, icon: Icon }) => (
   </div>
 );
 
+// Line Graph Component for Concept Performance
+const ConceptLineGraph = ({ concepts }) => {
+  const maxMastery = 100;
+  const sortedConcepts = [...concepts].sort((a, b) => a.mastery - b.mastery);
+  
+  return (
+    <div className="h-48 md:h-56 mt-4">
+      <div className="relative h-full">
+        {/* Y-axis labels */}
+        <div className="absolute -left-6 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-500">
+          <span>100</span>
+          <span>75</span>
+          <span>50</span>
+          <span>25</span>
+          <span>0</span>
+        </div>
+        
+        {/* Chart area */}
+        <div className="ml-6 h-full relative">
+          {/* Horizontal grid lines */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            {[100, 75, 50, 25, 0].map((line, i) => (
+              <div key={i} className="border-t border-white/10 w-full"></div>
+            ))}
+          </div>
+          
+          {/* Bars */}
+          <div className="relative h-full flex items-end gap-1 md:gap-2 pt-4">
+            {sortedConcepts.map((concept, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center group">
+                <div 
+                  className="w-full rounded-t-lg transition-all duration-500 hover:opacity-80"
+                  style={{ 
+                    height: `${concept.mastery}%`,
+                    backgroundColor: concept.mastery >= 70 ? '#10B981' : concept.mastery >= 50 ? '#F59E0B' : '#EF4444',
+                    minHeight: '4px'
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center truncate w-full group-hover:text-blue-400 transition">
+                  {concept.concept?.replace(/_/g, ' ').substring(0, 8)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Hexagonal Graph Component
+const HexagonalGraph = ({ concepts }) => {
+  const getColor = (mastery) => {
+    if (mastery >= 80) return '#10B981';
+    if (mastery >= 60) return '#3B82F6';
+    if (mastery >= 40) return '#F59E0B';
+    return '#EF4444';
+  };
+
+  const getGlow = (mastery) => {
+    if (mastery >= 80) return '0 0 15px rgba(16, 185, 129, 0.3)';
+    if (mastery >= 60) return '0 0 15px rgba(59, 130, 246, 0.3)';
+    if (mastery >= 40) return '0 0 15px rgba(245, 158, 11, 0.3)';
+    return '0 0 15px rgba(239, 68, 68, 0.3)';
+  };
+
+  const topConcepts = [...concepts].sort((a, b) => b.mastery - a.mastery).slice(0, 6);
+  
+  // Fill remaining slots with empty placeholders if less than 6 concepts
+  while (topConcepts.length < 6) {
+    topConcepts.push({ concept: 'pending', mastery: 0, totalQuestions: 0 });
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-3 md:gap-4 mt-4">
+      {topConcepts.map((concept, idx) => (
+        <div key={idx} className="flex flex-col items-center text-center group">
+          <div 
+            className="w-14 h-14 md:w-20 md:h-20 flex items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 cursor-pointer"
+            style={{ 
+              backgroundColor: concept.mastery > 0 ? `${getColor(concept.mastery)}20` : '#1E293B',
+              border: `2px solid ${concept.mastery > 0 ? getColor(concept.mastery) : '#475569'}`,
+              boxShadow: concept.mastery > 0 ? getGlow(concept.mastery) : 'none'
+            }}
+          >
+            {concept.mastery > 0 ? (
+              <span className="text-base md:text-xl font-bold" style={{ color: getColor(concept.mastery) }}>
+                {Math.round(concept.mastery)}%
+              </span>
+            ) : (
+              <HelpCircle size={20} className="text-gray-600 md:text-2xl" />
+            )}
+          </div>
+          <p className="text-xs md:text-sm text-gray-400 mt-2 capitalize group-hover:text-white transition">
+            {concept.concept?.replace(/_/g, ' ').substring(0, 12) || 'Not Started'}
+          </p>
+          {concept.totalQuestions > 0 && (
+            <p className="text-xs text-gray-500">{concept.totalQuestions} Qs</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Ranked Concept List
 const RankedConceptList = ({ concepts }) => {
   const sortedConcepts = [...concepts].sort((a, b) => b.mastery - a.mastery);
   
@@ -150,6 +258,36 @@ const RankedConceptList = ({ concepts }) => {
           <p className="text-xs text-gray-500 mt-1">{concept.totalQuestions} questions</p>
         </div>
       ))}
+    </div>
+  );
+};
+
+// AI Chat Button with Banner
+const AIChatButton = ({ onClick, isOpen }) => {
+  const [showBanner, setShowBanner] = useState(true);
+
+  if (isOpen) return null;
+
+  return (
+    <div className="relative">
+      {showBanner && (
+        <div className="absolute -top-10 right-0 bg-blue-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2 whitespace-nowrap animate-pulse">
+          <MessageCircle size={12} />
+          <span>Talk to PACT AI</span>
+          <button 
+            onClick={() => setShowBanner(false)} 
+            className="ml-1 hover:bg-white/20 rounded-full p-0.5"
+          >
+            <X size={10} />
+          </button>
+        </div>
+      )}
+      <button
+        onClick={onClick}
+        className="bg-blue-500 rounded-full p-3 shadow-lg hover:bg-blue-600 transition-all duration-300 hover:scale-105"
+      >
+        <Bot size={24} className="text-white" />
+      </button>
     </div>
   );
 };
@@ -352,7 +490,7 @@ export default function StudentDashboard() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Static Header - Always visible */}
+        {/* Static Header */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/90 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
@@ -415,13 +553,44 @@ export default function StudentDashboard() {
             />
           </div>
 
-          {/* Concept Performance */}
+          {/* Visualizations Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Line Graph Visualization */}
+            {conceptMastery.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <LineChart size={18} className="text-blue-400" />
+                    <h3 className="font-semibold text-white text-sm md:text-base">Performance Trend</h3>
+                  </div>
+                  <span className="text-xs text-gray-500">Concept Mastery (%)</span>
+                </div>
+                <ConceptLineGraph concepts={conceptMastery} />
+              </div>
+            )}
+
+            {/* Hexagonal Graph Visualization */}
+            {conceptMastery.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Hexagon size={18} className="text-blue-400" />
+                    <h3 className="font-semibold text-white text-sm md:text-base">Concept Mastery Hexagon</h3>
+                  </div>
+                  <span className="text-xs text-gray-500">Top 6 Concepts</span>
+                </div>
+                <HexagonalGraph concepts={conceptMastery} />
+              </div>
+            )}
+          </div>
+
+          {/* Concept Performance List */}
           {conceptMastery.length > 0 && (
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <BarChart3 size={18} className="text-blue-400" />
-                  <h3 className="font-semibold text-white text-sm md:text-base">Concept Performance</h3>
+                  <h3 className="font-semibold text-white text-sm md:text-base">Ranked Concept Performance</h3>
                 </div>
                 <Link href="/student/gaps">
                   <button className="text-xs text-blue-400 hover:text-blue-300 transition">View All</button>
@@ -450,15 +619,10 @@ export default function StudentDashboard() {
           )}
         </div>
 
-        {/* AI Chat - Mobile: Fixed bottom button, expands to modal-like panel */}
+        {/* AI Chat - Mobile */}
         <div className="fixed bottom-4 right-4 z-50 md:hidden">
           {isChatMinimized ? (
-            <button
-              onClick={() => setIsChatMinimized(false)}
-              className="bg-blue-500 rounded-full p-3 shadow-lg"
-            >
-              <Bot size={24} className="text-white" />
-            </button>
+            <AIChatButton onClick={() => setIsChatMinimized(false)} isOpen={!isChatMinimized} />
           ) : (
             <div className="absolute bottom-0 right-0 w-[90vw] max-w-sm bg-[#0D1A2D] border border-white/20 rounded-xl shadow-2xl">
               <div className="p-3 border-b border-white/10 flex justify-between items-center">
@@ -508,15 +672,10 @@ export default function StudentDashboard() {
           )}
         </div>
 
-        {/* AI Chat - Desktop: Side panel */}
+        {/* AI Chat - Desktop */}
         <div className="hidden md:block fixed bottom-6 right-6 z-50">
           {isChatMinimized ? (
-            <button
-              onClick={() => setIsChatMinimized(false)}
-              className="bg-blue-500 rounded-full p-3 shadow-lg"
-            >
-              <Bot size={24} className="text-white" />
-            </button>
+            <AIChatButton onClick={() => setIsChatMinimized(false)} isOpen={!isChatMinimized} />
           ) : (
             <div className="w-80 bg-[#0D1A2D] border border-white/20 rounded-xl shadow-2xl">
               <div className="p-3 border-b border-white/10 flex justify-between items-center">
