@@ -16,84 +16,124 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
     }
 
-    // Get stored gap analysis
+    // Get the most recent gap analysis for this student from local database
     const analysisResult = await query(`
-      SELECT concept, analysis_data, created_at
+      SELECT id, student_id, concept, session_id, analysis_data, created_at
       FROM gap_analysis
       WHERE student_id = $1
       ORDER BY created_at DESC
+      LIMIT 5
     `, [studentId]);
 
-    // Get recent responses for real-time calculation
-    const responses = await query(`
-      SELECT r.*, qs.concept, qs.language
-      FROM responses r
-      JOIN quiz_sessions qs ON r.session_id = qs.session_id
-      WHERE r.student_id = $1
-      ORDER BY r.timestamp DESC
-    `, [studentId]);
+    console.log('Found gap analysis records:', analysisResult.rows.length);
 
-    if (responses.rows.length === 0 && analysisResult.rows.length === 0) {
+    if (analysisResult.rows.length === 0) {
       return NextResponse.json({ 
         primary_gaps: [], 
         secondary_gaps: [],
+        overall_mastery: 0,
         message: "Complete a quiz and click 'Save & Analyze' to see your knowledge gaps"
       });
     }
 
-    // Calculate mastery from responses
-    const conceptStats = {};
-    for (const resp of responses.rows) {
-      const concept = resp.concept || 'general';
-      if (!conceptStats[concept]) {
-        conceptStats[concept] = { total: 0, correct: 0, errors: [] };
-      }
-      conceptStats[concept].total++;
-      if (resp.is_correct) conceptStats[concept].correct++;
-      else if (resp.selected_answer) {
-        conceptStats[concept].errors.push(resp.selected_answer);
+    // Process each analysis record to extract gaps
+    const allPrimaryGaps = [];
+    const allSecondaryGaps = [];
+    let totalMastery = 0;
+    let masteredConcepts = 0;
+
+    for (const row of analysisResult.rows) {
+      const analysis = row.analysis_data;
+      const concept = row.concept;
+      
+      if (analysis) {
+        // Calculate mastery from accuracy
+        const accuracy = analysis.accuracy_percentage || 
+                        (analysis.mastery_level === 'advanced' ? 85 : 
+                         analysis.mastery_level === 'intermediate' ? 65 : 45);
+        
+        totalMastery += accuracy;
+        masteredConcepts++;
+        
+        // Create gap entries based on weaknesses
+        if (analysis.weaknesses && analysis.weaknesses.length > 0) {
+          for (const weakness of analysis.weaknesses) {
+            const gap = {
+              concept: concept,
+              language: 'python',
+              mastery: accuracy,
+              severity: accuracy < 60 ? 'high' : 'medium',
+              gap_type: 'knowledge_gap',
+              specific_errors: [weakness],
+              detailed_analysis: weakness,
+              session_id: row.session_id,
+              analyzed_at: row.created_at
+            };
+            
+            if (accuracy < 60) {
+              allPrimaryGaps.push(gap);
+            } else {
+              allSecondaryGaps.push(gap);
+            }
+          }
+        }
+        
+        // Also add a general gap if no specific weaknesses
+        if ((!analysis.weaknesses || analysis.weaknesses.length === 0) && accuracy < 80) {
+          const gap = {
+            concept: concept,
+            language: 'python',
+            mastery: accuracy,
+            severity: accuracy < 60 ? 'high' : 'medium',
+            gap_type: 'needs_practice',
+            specific_errors: ['General concept understanding needs improvement'],
+            session_id: row.session_id,
+            analyzed_at: row.created_at
+          };
+          
+          if (accuracy < 60) {
+            allPrimaryGaps.push(gap);
+          } else {
+            allSecondaryGaps.push(gap);
+          }
+        }
       }
     }
 
-    const primaryGaps = [];
-    const secondaryGaps = [];
-
-    for (const [concept, stats] of Object.entries(conceptStats)) {
-      const mastery = (stats.correct / stats.total) * 100;
-      const gap = {
-        concept: concept,
-        mastery: Math.round(mastery),
-        total_attempts: stats.total,
-        correct_count: stats.correct
-      };
-
-      if (mastery < 60) {
-        primaryGaps.push({ ...gap, severity: 'high', gap_type: 'needs_review' });
-      } else if (mastery < 80) {
-        secondaryGaps.push({ ...gap, severity: 'medium' });
+    // Remove duplicates by concept
+    const uniquePrimaryGaps = [];
+    const seenPrimaryConcepts = new Set();
+    for (const gap of allPrimaryGaps) {
+      if (!seenPrimaryConcepts.has(gap.concept)) {
+        seenPrimaryConcepts.add(gap.concept);
+        uniquePrimaryGaps.push(gap);
       }
     }
 
-    // Extract analysis from stored data
-    let overallMastery = 0;
-    if (analysisResult.rows.length > 0) {
-      const latestAnalysis = analysisResult.rows[0].analysis_data;
-      overallMastery = latestAnalysis.mastery_level === 'advanced' ? 85 : 
-                       latestAnalysis.mastery_level === 'intermediate' ? 65 : 45;
-    } else if (primaryGaps.length > 0 || secondaryGaps.length > 0) {
-      const totalCorrect = Object.values(conceptStats).reduce((sum, s) => sum + s.correct, 0);
-      const totalQuestions = Object.values(conceptStats).reduce((sum, s) => sum + s.total, 0);
-      overallMastery = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+    const uniqueSecondaryGaps = [];
+    const seenSecondaryConcepts = new Set();
+    for (const gap of allSecondaryGaps) {
+      if (!seenSecondaryConcepts.has(gap.concept)) {
+        seenSecondaryConcepts.add(gap.concept);
+        uniqueSecondaryGaps.push(gap);
+      }
     }
+
+    const overallMastery = masteredConcepts > 0 ? Math.round(totalMastery / masteredConcepts) : 0;
 
     return NextResponse.json({
-      primary_gaps: primaryGaps,
-      secondary_gaps: secondaryGaps,
+      primary_gaps: uniquePrimaryGaps,
+      secondary_gaps: uniqueSecondaryGaps,
       overall_mastery: overallMastery,
-      source: 'quiz-data'
+      total_quizzes_analyzed: analysisResult.rows.length,
+      source: 'local_database'
     });
   } catch (error) {
     console.error('Gaps API error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+      error: error.message,
+      primary_gaps: [], 
+      secondary_gaps: []
+    }, { status: 500 });
   }
 }
