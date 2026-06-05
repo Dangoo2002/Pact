@@ -49,39 +49,9 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
-            <span className="text-xl font-bold text-white">PACT</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">Student Portal</p>
-        </div>
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
-          </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-            <LogOut size={16} />
-            Sign Out
-          </button>
-        </div>
+        <div className="p-4 border-b border-white/10"><div className="flex items-center gap-2"><div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div><span className="text-xl font-bold text-white">PACT</span></div><p className="text-xs text-gray-500 mt-2">Student Portal</p></div>
+        <nav className="p-3 space-y-1">{navItems.map((item) => { const Icon = item.icon; return (<Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"><Icon size={18} /><span className="text-sm">{item.label}</span></Link>); })}</nav>
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10"><div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center"><User className="h-4 w-4 text-blue-400" /></div><div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div></div><button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button></div>
       </div>
     </>
   );
@@ -106,7 +76,7 @@ export default function QuizPage() {
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(600);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
   const [aiHint, setAiHint] = useState(null);
   const [gettingHint, setGettingHint] = useState(false);
   const [allAnswers, setAllAnswers] = useState([]);
@@ -137,7 +107,7 @@ export default function QuizPage() {
         setScore(data.score || 0);
         setQuestionsAnswered(data.questions_answered || 0);
         setCurrentQuestionIndex(data.questions_answered || 0);
-        setTimeLeft(data.time_left || 600);
+        setTimeLeft(data.time_left || 300);
         setQuizConcept(data.concept || data.all_questions?.[0]?.concept || 'general');
         setQuizLanguage(data.language || data.all_questions?.[0]?.language || 'python');
         setAllAnswers(data.answers || []);
@@ -295,17 +265,17 @@ export default function QuizPage() {
         <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 max-w-md w-full text-center">
             {percentage >= 70 ? <CheckCircle size={64} className="text-green-400 mx-auto mb-4" /> : <XCircle size={64} className="text-red-400 mx-auto mb-4" />}
-            <h2 className="text-2xl font-bold text-white mb-2">Quiz Completed!</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Quiz Completed</h2>
             <p className="text-3xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
             <p className="text-gray-400 mb-6">You scored {percentage}%</p>
 
             {!savedToDatabase ? (
-              <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-xl p-4 mb-6 border border-purple-500/30">
-                <p className="text-sm text-purple-300 mb-3">✨ Get AI-Powered Insights</p>
+              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 mb-6 border border-blue-500/30">
+                <p className="text-sm text-blue-300 mb-3">Get AI-Powered Insights</p>
                 <button
                   onClick={handleSaveAndAnalyze}
                   disabled={isSaving}
-                  className="w-full py-2 rounded-lg bg-purple-500/30 border border-purple-500/50 text-white hover:bg-purple-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-2 rounded-lg bg-blue-500/30 border border-blue-500/50 text-white hover:bg-blue-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   {isSaving ? 'Analyzing with AI...' : 'Save & Get AI Recommendations'}
@@ -313,7 +283,7 @@ export default function QuizPage() {
               </div>
             ) : (
               <div className="bg-green-500/10 rounded-xl p-3 mb-6 border border-green-500/30">
-                <p className="text-sm text-green-400">✅ Analysis complete! Check your recommendations.</p>
+                <p className="text-sm text-green-400">Analysis complete! Check your recommendations.</p>
               </div>
             )}
 
@@ -323,7 +293,6 @@ export default function QuizPage() {
                   Back to Dashboard
                 </button>
               </Link>
-              {/* Pass sessionId to recommendations page */}
               <Link href={`/student/recommendations?sessionId=${sessionId}`}>
                 <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">
                   View Recommendations

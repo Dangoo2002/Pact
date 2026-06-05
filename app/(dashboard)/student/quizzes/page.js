@@ -57,7 +57,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-const LANGUAGES = ['syntax', 'control_flow', 'programming', 'data_structures', 'oop'];
+// All 7 programming languages
+const LANGUAGES = ['Python', 'JavaScript', 'Java', 'C++', 'TypeScript', 'Go', 'Rust'];
 const CONCEPTS = ['variables', 'data_types', 'operators', 'conditionals', 'loops', 'functions', 'arrays', 'strings', 'classes', 'inheritance'];
 
 export default function QuizzesPage() {
@@ -71,7 +72,11 @@ export default function QuizzesPage() {
   const [conceptFilter, setConceptFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [startingQuiz, setStartingQuiz] = useState(false);
+  const [startingQuizId, setStartingQuizId] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
 
   useEffect(() => {
     if (!session) {
@@ -89,6 +94,7 @@ export default function QuizzesPage() {
       const data = await response.json();
       setQuizzes(data.quizzes || []);
       setFilteredQuizzes(data.quizzes || []);
+      setCurrentPage(1);
     } catch (error) {
       console.error('Failed to fetch quizzes:', error);
     } finally {
@@ -96,13 +102,11 @@ export default function QuizzesPage() {
     }
   };
 
-  const startQuiz = async (concept, language) => {
-    if (startingQuiz) return;
-    setStartingQuiz(true);
+  const startQuiz = async (concept, language, quizId) => {
+    if (startingQuizId) return;
+    setStartingQuizId(quizId);
     
     try {
-      console.log('Starting quiz with:', { studentId: session.user.id, concept, language });
-      
       const response = await fetch('/api/student/quiz/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,12 +115,10 @@ export default function QuizzesPage() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Server error:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
-      console.log('Quiz started successfully:', data);
       
       if (!data.session_id) {
         throw new Error('No session_id returned');
@@ -129,23 +131,23 @@ export default function QuizzesPage() {
         total_questions: data.total_questions,
         score: 0,
         questions_answered: 0,
-        time_left: data.time_limit || 600
+        time_left: 300 // 5 minutes = 300 seconds
       };
       
       const storageKey = `quiz_${data.session_id}`;
       sessionStorage.setItem(storageKey, JSON.stringify(quizData));
       localStorage.setItem(storageKey, JSON.stringify(quizData));
       
-      // Navigate to quiz page
       router.push(`/student/quiz/${data.session_id}`);
     } catch (error) {
       console.error('Failed to start quiz:', error);
       alert('Failed to start quiz: ' + error.message);
     } finally {
-      setStartingQuiz(false);
+      setStartingQuizId(null);
     }
   };
 
+  // Filter based on search
   useEffect(() => {
     if (!search) {
       setFilteredQuizzes(quizzes);
@@ -156,7 +158,15 @@ export default function QuizzesPage() {
       );
       setFilteredQuizzes(filtered);
     }
+    setCurrentPage(1);
   }, [search, quizzes]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredQuizzes.length / itemsPerPage);
+  const paginatedQuizzes = filteredQuizzes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (loading) {
     return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>;
@@ -187,6 +197,7 @@ export default function QuizzesPage() {
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden p-2 rounded-lg border border-white/10 hover:bg-white/10"><Filter size={18} className="text-gray-400" /></button>
           </div>
 
+          {/* Filters */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
@@ -195,8 +206,8 @@ export default function QuizzesPage() {
               </div>
               <div className={`flex flex-col md:flex-row gap-3 ${showFilters ? 'flex' : 'hidden md:flex'}`}>
                 <select value={languageFilter} onChange={(e) => setLanguageFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
-                  <option value="all">All Categories</option>
-                  {LANGUAGES.map(lang => <option key={lang} value={lang}>{lang.replace('_', ' ').charAt(0).toUpperCase() + lang.replace('_', ' ').slice(1)}</option>)}
+                  <option value="all">All Languages</option>
+                  {LANGUAGES.map(lang => <option key={lang} value={lang.toLowerCase()}>{lang}</option>)}
                 </select>
                 <select value={conceptFilter} onChange={(e) => setConceptFilter(e.target.value)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50">
                   <option value="all">All Concepts</option>
@@ -206,30 +217,66 @@ export default function QuizzesPage() {
             </div>
           </div>
 
-          {filteredQuizzes.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredQuizzes.map((quiz) => (
-                <div key={quiz.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition cursor-pointer" onClick={() => startQuiz(quiz.title, quiz.language)}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="p-2 rounded-lg bg-blue-500/20"><Code size={18} className="text-blue-400" /></div>
-                    {quiz.progress > 0 && (<span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">{quiz.progress}% complete</span>)}
+          {/* Quizzes Grid */}
+          {paginatedQuizzes.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedQuizzes.map((quiz) => (
+                  <div key={quiz.id} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition cursor-pointer" onClick={() => startQuiz(quiz.title, quiz.language, quiz.id)}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="p-2 rounded-lg bg-blue-500/20"><Code size={18} className="text-blue-400" /></div>
+                      {quiz.progress > 0 && (<span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">{quiz.progress}% complete</span>)}
+                    </div>
+                    <h3 className="font-semibold text-white mb-1 capitalize">{quiz.title.replace('_', ' ')}</h3>
+                    <div className="flex items-center gap-2 text-xs mb-3">
+                      <span className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300 capitalize">{quiz.language}</span>
+                      <span className={`px-2 py-0.5 rounded-full capitalize ${quiz.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' : quiz.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{quiz.difficulty}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
+                      <div className="flex items-center gap-1"><Clock size={12} /><span>{quiz.estimated_time} min</span></div>
+                      <div className="flex items-center gap-1"><Sparkles size={12} /><span>5 questions</span></div>
+                    </div>
+                    <button className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium" disabled={startingQuizId === quiz.id}>
+                      {startingQuizId === quiz.id ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
+                      {startingQuizId === quiz.id ? 'Starting...' : 'Start Quiz'}
+                    </button>
                   </div>
-                  <h3 className="font-semibold text-white mb-1 capitalize">{quiz.title.replace('_', ' ')}</h3>
-                  <div className="flex items-center gap-2 text-xs mb-3">
-                    <span className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300 capitalize">{quiz.language?.replace('_', ' ')}</span>
-                    <span className={`px-2 py-0.5 rounded-full capitalize ${quiz.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' : quiz.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>{quiz.difficulty}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
-                    <div className="flex items-center gap-1"><Clock size={12} /><span>{quiz.estimated_time} min</span></div>
-                    <div className="flex items-center gap-1"><BookOpen size={12} /><span>{quiz.question_count} questions</span></div>
-                  </div>
-                  <button className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm font-medium" disabled={startingQuiz}>
-                    {startingQuiz ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
-                    {startingQuiz ? 'Starting...' : 'Start Quiz'}
+                ))}
+              </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        currentPage === page
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
                   </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12">
               <Code size={48} className="mx-auto text-gray-600 mb-4" />
