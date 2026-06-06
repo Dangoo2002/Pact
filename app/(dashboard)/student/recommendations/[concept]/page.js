@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
-// Star Background Component
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
