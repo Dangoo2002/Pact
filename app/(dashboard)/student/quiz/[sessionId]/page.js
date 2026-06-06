@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, 
   Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
-  ChevronRight
+  ChevronRight, Brain
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -190,6 +190,26 @@ export default function QuizPage() {
     }
   };
 
+  // Save quiz progress to sessionStorage
+  const saveQuizProgress = (updatedScore, updatedQuestionsAnswered, updatedCurrentQuestion, updatedAllAnswers) => {
+    try {
+      const quizData = {
+        all_questions: allQuestions,
+        current_question: updatedCurrentQuestion,
+        total_questions: totalQuestions,
+        score: updatedScore,
+        questions_answered: updatedQuestionsAnswered,
+        time_left: timeLeft,
+        concept: quizConcept,
+        language: quizLanguage,
+        answers: updatedAllAnswers
+      };
+      sessionStorage.setItem(`quiz_${sessionId}`, JSON.stringify(quizData));
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
+  };
+
   // Timer
   useEffect(() => {
     if (quizCompleted || loading || !currentQuestion) return;
@@ -256,21 +276,25 @@ export default function QuizPage() {
       
       const result = await response.json();
       
+      const isCorrect = result.is_correct;
+      const explanation = formatAIExplanation(result.explanation);
+      
       setFeedback({
-        isCorrect: result.is_correct,
-        explanation: formatAIExplanation(result.explanation)
+        isCorrect: isCorrect,
+        explanation: explanation
       });
       
-      setAllAnswers(prev => [...prev, {
+      const newAnswers = [...allAnswers, {
         questionId: currentQuestion?.id,
         question: currentQuestion?.text,
         answer: selectedAnswer || codeAnswer,
-        isCorrect: result.is_correct,
+        isCorrect: isCorrect,
         correct_answer: currentQuestion?.correct_answer
-      }]);
+      }];
+      setAllAnswers(newAnswers);
       
-      const newScore = result.current_score || score + (result.is_correct ? 1 : 0);
-      const newQuestionsAnswered = result.questions_answered || questionsAnswered + 1;
+      const newScore = score + (isCorrect ? 1 : 0);
+      const newQuestionsAnswered = questionsAnswered + 1;
       
       setScore(newScore);
       setQuestionsAnswered(newQuestionsAnswered);
@@ -279,6 +303,9 @@ export default function QuizPage() {
         setQuizCompleted(true);
         setSubmitting(false);
       } else if (result.next_question) {
+        // Save progress before moving to next question
+        saveQuizProgress(newScore, newQuestionsAnswered, result.next_question, newAnswers);
+        
         setTimeout(() => {
           setCurrentQuestion(result.next_question);
           setCurrentQuestionIndex(newQuestionsAnswered);
@@ -359,8 +386,8 @@ export default function QuizPage() {
                     disabled={isSaving}
                     className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
                   >
-                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                    {isSaving ? 'Analyzing with AI...' : 'Get AI Recommendations'}
+                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
+                    {isSaving ? 'Analyzing with AI...' : 'Save & Analyze with AI'}
                   </button>
                 </div>
               ) : (
@@ -393,6 +420,9 @@ export default function QuizPage() {
   }
 
   const isCodeQuestion = currentQuestion?.type === 'code_writing' || currentQuestion?.code_required;
+  const progressPercentage = ((questionsAnswered + (feedback ? 1 : 0)) / totalQuestions) * 100;
+  const displayQuestionNumber = questionsAnswered + (feedback ? 1 : 0);
+  const displayScore = score + (feedback?.isCorrect ? 0 : 0);
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
@@ -494,28 +524,54 @@ export default function QuizPage() {
                 </div>
               )}
 
-              {/* Submit Button */}
-              <button 
-                onClick={handleAnswerSubmit} 
-                disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
-                className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
-              >
-                {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
-                {submitting ? 'Processing...' : feedback ? 'Next Question' : 'Submit Answer'}
-                {!submitting && feedback && <ChevronRight size={14} className="md:text-[16px]" />}
-              </button>
+              {/* Submit Button - Changed to "Submit & Analyze with AI" after feedback */}
+              {!feedback ? (
+                <button 
+                  onClick={handleAnswerSubmit} 
+                  disabled={(!selectedAnswer && !codeAnswer) || submitting} 
+                  className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
+                  {submitting ? 'Submitting...' : 'Submit Answer'}
+                  {!submitting && <ChevronRight size={14} className="md:text-[16px]" />}
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <button 
+                    onClick={handleAnswerSubmit} 
+                    className="w-full py-2 md:py-2.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    Next Question
+                    <ChevronRight size={14} className="md:text-[16px]" />
+                  </button>
+                  
+                  {questionsAnswered === totalQuestions - 1 && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <p className="text-xs text-gray-400 text-center mb-2">After this question, you can analyze your performance</p>
+                      <button 
+                        onClick={handleSaveAndAnalyze}
+                        disabled={isSaving}
+                        className="w-full py-2 md:py-2.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+                        {isSaving ? 'Analyzing...' : 'Save & Analyze with AI'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Progress Bar - Placed BELOW the question card for full visibility on all screens */}
+            {/* Progress Bar - Shows REAL-TIME progress */}
             <div className="mt-4 md:mt-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4">
               <div className="flex justify-between text-xs md:text-sm text-gray-400 mb-2">
-                <span>Question {questionsAnswered + 1} of {totalQuestions}</span>
-                <span>Score: {score} / {totalQuestions}</span>
+                <span>Question {Math.min(displayQuestionNumber, totalQuestions)} of {totalQuestions}</span>
+                <span>Score: {displayScore} / {totalQuestions}</span>
               </div>
               <div className="h-1.5 md:h-2 bg-white/10 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} 
+                  style={{ width: `${Math.min(progressPercentage, 100)}%` }} 
                 />
               </div>
             </div>

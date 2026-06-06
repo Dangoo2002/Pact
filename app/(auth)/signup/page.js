@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Code, Mail, Lock, User, ArrowRight, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
-// Toast notification component
+// Toast notification component - EXACT SAME as Login page
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -27,14 +27,16 @@ const Toast = ({ message, type, onClose }) => {
   };
 
   return (
-    <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl backdrop-blur-md border ${bgColors[type]} animate-in slide-in-from-top-5 duration-300`}>
-      {icons[type]}
-      <p className="text-sm text-white">{message}</p>
+    <div className="fixed top-16 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+      <div className={`pointer-events-auto flex items-center gap-2 sm:gap-3 px-3 py-2 sm:px-4 sm:py-3 rounded-xl backdrop-blur-md border ${bgColors[type]} animate-in slide-in-from-top-5 duration-300 max-w-[90%] sm:max-w-md`}>
+        {icons[type]}
+        <p className="text-xs sm:text-sm text-white">{message}</p>
+      </div>
     </div>
   );
 };
 
-// Static star background component
+// Static star background component - EXACT SAME as Login page
 const StarBackground = () => {
   const canvasRef = useRef(null);
 
