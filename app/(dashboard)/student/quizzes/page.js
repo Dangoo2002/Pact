@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  Code, Search, Clock, BookOpen, ChevronRight, Filter,
-  Sparkles, Menu, X, User, LogOut, Bell, Bot, Loader2, LayoutDashboard, Target,
+  Code, Search, Clock, BookOpen, Filter,
+  Sparkles, Menu, User, LogOut, Bell, Loader2, LayoutDashboard, Target,
   ChevronLeft, ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -66,10 +66,6 @@ const QuizzesSkeleton = () => (
     <StarBackground />
     <div className="md:ml-64">
       <div className="pt-20 px-4 md:px-6 pb-6 animate-pulse">
-        <div className="mb-5">
-          <div className="h-7 w-48 bg-white/10 rounded mb-2" />
-          <div className="h-4 w-64 bg-white/5 rounded" />
-        </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 h-10 bg-white/10 rounded" />
@@ -242,13 +238,7 @@ export default function QuizzesPage() {
         </div>
 
         <div className="p-4 md:p-6">
-          {/* Welcome Section */}
-          <div className="mb-5">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Practice Quizzes</h2>
-            <p className="text-sm text-gray-400 mt-1">Test your knowledge across 7 programming languages</p>
-          </div>
-
-          {/* Filter Toggle */}
+          {/* Filter Toggle for Mobile */}
           <div className="flex justify-between items-center mb-4 md:hidden">
             <button 
               onClick={() => setShowFilters(!showFilters)} 
@@ -353,71 +343,79 @@ export default function QuizzesPage() {
               
               {/* Pagination - Super Visible on Mobile & Desktop */}
               {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-2 sm:gap-4 md:gap-6 mt-6 md:mt-8">
+                <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-3 md:gap-4 mt-8 mb-4">
+                  {/* Previous Button */}
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base ${
+                    className={`flex items-center gap-1 px-3 sm:px-5 py-2 rounded-lg transition text-sm sm:text-base font-medium ${
                       currentPage === 1 
                         ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 hover:scale-105'
                     }`}
                   >
                     <ChevronLeft size={16} />
-                    <span className="hidden sm:inline">Previous</span>
-                    <span className="sm:hidden">Prev</span>
+                    <span>Prev</span>
                   </button>
                   
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1 sm:gap-2 bg-white/5 rounded-lg p-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisible = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                      
+                      if (endPage - startPage + 1 < maxVisible) {
+                        startPage = Math.max(1, endPage - maxVisible + 1);
                       }
                       
-                      return (
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((pageNum) => (
                         <button
-                          key={i}
+                          key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`min-w-[32px] sm:min-w-[40px] px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition ${
+                          className={`min-w-[36px] sm:min-w-[44px] px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition ${
                             currentPage === pageNum
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                              ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                              : 'text-gray-400 hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           {pageNum}
                         </button>
-                      );
-                    })}
+                      ));
+                    })()}
                   </div>
                   
+                  {/* Next Button */}
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base ${
+                    className={`flex items-center gap-1 px-3 sm:px-5 py-2 rounded-lg transition text-sm sm:text-base font-medium ${
                       currentPage === totalPages 
                         ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 hover:scale-105'
                     }`}
                   >
-                    <span className="hidden sm:inline">Next</span>
-                    <span className="sm:hidden">Next</span>
+                    <span>Next</span>
                     <ChevronRightIcon size={16} />
                   </button>
                 </div>
               )}
+              
+              {/* Page Info */}
+              <div className="text-center text-xs text-gray-500 mt-2">
+                Showing {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredQuizzes.length)} of {filteredQuizzes.length} quizzes
+              </div>
             </>
           ) : (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8 md:py-12">
-              <Code size={40} className="md:text-[48px] mx-auto text-gray-600 mb-3 md:mb-4" />
-              <h3 className="text-base md:text-lg font-medium text-white mb-1 md:mb-2">No quizzes found</h3>
-              <p className="text-xs md:text-sm text-gray-500">Try selecting a different language or concept.</p>
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-12">
+              <Code size={48} className="mx-auto text-gray-600 mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No quizzes found</h3>
+              <p className="text-sm text-gray-500">Try selecting a different language or concept.</p>
             </div>
           )}
         </div>
