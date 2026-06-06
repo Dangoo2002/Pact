@@ -10,6 +10,7 @@ import {
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+// ─── Star Background ──────────────────────────────────────────────────────────
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -21,11 +22,23 @@ const StarBackground = () => {
     setSize();
     window.addEventListener('resize', setSize);
     const stars = [];
-    for (let i = 0; i < 200; i++) stars.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, radius: Math.random() * 1.5, alpha: Math.random() * 0.5 + 0.2 });
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: Math.random() * 1.5,
+        alpha: Math.random() * 0.5 + 0.2
+      });
+    }
     const draw = () => {
       ctx.fillStyle = '#0A1628';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      stars.forEach(star => { ctx.beginPath(); ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`; ctx.fill(); });
+      stars.forEach(star => {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+        ctx.fill();
+      });
     };
     draw();
     return () => window.removeEventListener('resize', setSize);
@@ -33,11 +46,55 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
+// ─── Skeleton Screen ──────────────────────────────────────────────────────────
+const GapsSkeleton = () => (
+  <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6 animate-pulse">
+    {/* Header Skeleton */}
+    <div className="mb-5">
+      <div className="h-6 sm:h-7 w-40 bg-white/10 rounded-lg mb-2" />
+      <div className="h-3 sm:h-4 w-64 bg-white/5 rounded-lg" />
+    </div>
+
+    {/* Stats Cards Skeleton */}
+    <div className="grid grid-cols-3 gap-3 mb-6">
+      {[...Array(3)].map((_, i) => (
+        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+          <div className="w-6 h-6 bg-white/10 rounded-lg mx-auto mb-2" />
+          <div className="h-6 w-12 bg-white/10 rounded mx-auto mb-1" />
+          <div className="h-3 w-16 bg-white/5 rounded mx-auto" />
+        </div>
+      ))}
+    </div>
+
+    {/* Primary Gaps Skeleton */}
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+      <div className="h-5 w-32 bg-white/10 rounded mb-3" />
+      <div className="space-y-3">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="border-b border-white/10 pb-3">
+            <div className="flex justify-between items-start mb-2">
+              <div className="h-4 w-32 bg-white/10 rounded" />
+              <div className="h-6 w-20 bg-white/10 rounded" />
+            </div>
+            <div className="h-3 w-48 bg-white/5 rounded mt-2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const role = session?.user?.role;
-  const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/'); };
+  
+  const handleSignOut = async () => { 
+    await signOut({ redirect: false }); 
+    router.push('/'); 
+  };
+  
   const navItems = [
     { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/student/quizzes', label: 'Quizzes', icon: BookOpen },
@@ -45,48 +102,69 @@ const Sidebar = ({ isOpen, onClose }) => {
     { href: '/student/recommendations', label: 'Recommendations', icon: Sparkles },
     { href: '/student/profile', label: 'Profile', icon: User },
   ];
+  
   return (
     <>
-      {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
-            <span className="text-xl font-bold text-white">PACT</span>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">Student Portal</p>
-        </div>
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                <Icon size={18} />
-                <span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <User className="h-4 w-4 text-blue-400" />
+      {/* Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity duration-300"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628] backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-500/20 p-2 rounded-xl">
+                <Code className="h-5 w-5 text-blue-400" />
+              </div>
+              <span className="text-xl font-bold text-white">PACT</span>
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
-              <p className="text-xs text-gray-500 capitalize">{role}</p>
-            </div>
+            <p className="text-xs text-gray-500 mt-2">Student Portal</p>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-            <LogOut size={16} />
-            Sign Out
-          </button>
+          
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link 
+                  key={item.href} 
+                  href={item.href} 
+                  onClick={onClose} 
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
+                >
+                  <Icon size={18} />
+                  <span className="text-sm">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          
+          <div className="p-4 border-t border-white/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <User className="h-4 w-4 text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{session?.user?.name || 'Student'}</p>
+                <p className="text-xs text-gray-500 capitalize truncate">{role}</p>
+              </div>
+            </div>
+            <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
+              <LogOut size={16} />
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     </>
   );
 };
 
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function StudentGapsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -98,7 +176,9 @@ export default function StudentGapsPage() {
   const [aiExplanation, setAiExplanation] = useState({});
   const [explaining, setExplaining] = useState({});
 
+  // ── Auth Guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (status === 'loading') return;
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
@@ -164,16 +244,21 @@ export default function StudentGapsPage() {
     return 'Needs Improvement';
   };
 
-  if (status === 'loading' || loading) {
+  // ── Loading / Auth States ───────────────────────────────────────────────────
+  if (status === 'loading') {
     return (
       <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-        <span className="ml-3 text-gray-400">Analyzing your knowledge gaps...</span>
       </div>
     );
   }
 
+  if (status === 'unauthenticated') {
+    return null; // Will redirect via useEffect
+  }
+
   const studentName = session?.user?.name?.split(' ')[0] || 'Student';
+  const showSkeleton = loading;
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
@@ -181,141 +266,168 @@ export default function StudentGapsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Static Header */}
-        <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
+        {/* Fixed Header with Welcome */}
+        <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
+            <button 
+              onClick={() => setSidebarOpen(true)} 
+              className="md:hidden p-2 rounded-lg hover:bg-white/10 transition"
+            >
+              <Menu size={20} className="text-white" />
             </button>
-            <div className="hidden md:flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-blue-500/20">
-                <Target size={18} className="text-blue-400" />
-              </div>
-              <h1 className="text-xl font-semibold text-white">Knowledge Gaps</h1>
+            
+            {/* Welcome Section in Header */}
+            <div className="flex-1 ml-2 md:ml-0">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
+                Knowledge Gaps
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">
+                AI-identified areas where you need improvement
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-blue-400" />
-                </div>
-                <span className="text-sm text-white hidden sm:inline">{studentName}</span>
-              </div>
-            </div>
+
+            {/* Notification Bell */}
+            <button className="p-2 rounded-lg hover:bg-white/10 transition relative">
+              <Bell size={18} className="text-gray-400" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
-          {/* Welcome Header */}
-          <div className="mb-5">
-            <h2 className="text-xl md:text-2xl font-bold text-white">Your Knowledge Gaps</h2>
-            <p className="text-sm text-gray-400 mt-1">AI-identified areas where you need improvement</p>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-              <div className="p-1.5 rounded-lg bg-red-500/20 inline-block mb-1">
-                <AlertCircle size={14} className="text-red-400" />
+        {/* Content Area */}
+        {showSkeleton ? (
+          <GapsSkeleton />
+        ) : (
+          <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
+                <div className="p-1.5 rounded-lg bg-red-500/20 inline-block mb-1">
+                  <AlertCircle size={14} className="text-red-400" />
+                </div>
+                <p className="text-xl font-bold text-white">{primaryGaps.length}</p>
+                <p className="text-xs text-gray-500">High Priority</p>
               </div>
-              <p className="text-xl font-bold text-white">{primaryGaps.length}</p>
-              <p className="text-xs text-gray-500">High Priority</p>
-            </div>
-            
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-              <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1">
-                <TrendingDown size={14} className="text-yellow-400" />
+              
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
+                <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1">
+                  <TrendingDown size={14} className="text-yellow-400" />
+                </div>
+                <p className="text-xl font-bold text-white">{secondaryGaps.length}</p>
+                <p className="text-xs text-gray-500">To Improve</p>
               </div>
-              <p className="text-xl font-bold text-white">{secondaryGaps.length}</p>
-              <p className="text-xs text-gray-500">To Improve</p>
+
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
+                <div className="p-1.5 rounded-lg bg-blue-500/20 inline-block mb-1">
+                  <Brain size={14} className="text-blue-400" />
+                </div>
+                <p className="text-xl font-bold text-white">{overallMastery}%</p>
+                <p className="text-xs text-gray-500">Mastery</p>
+              </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-              <div className="p-1.5 rounded-lg bg-blue-500/20 inline-block mb-1">
-                <Brain size={14} className="text-blue-400" />
+            {/* Primary Gaps Section */}
+            {primaryGaps.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
+                <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2">
+                  <AlertCircle size={16} />
+                  High Priority Gaps
+                </h3>
+                <div className="space-y-3">
+                  {primaryGaps.map((gap, idx) => (
+                    <div key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-1">
+                        <div className="flex-1">
+                          <p className="font-medium text-white text-sm capitalize break-words">
+                            {gap.concept?.replace(/_/g, ' ')}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getMasteryColor(gap.mastery)}`}>
+                              {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
+                            </span>
+                          </div>
+                        </div>
+                        <Link href={`/student/recommendations?concept=${gap.concept}`}>
+                          <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">
+                            Get Resources →
+                          </button>
+                        </Link>
+                      </div>
+                      
+                      {gap.specific_errors && gap.specific_errors.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-2 break-words">
+                          • {gap.specific_errors[0]}
+                        </p>
+                      )}
+                      
+                      <button 
+                        onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])}
+                        disabled={explaining[gap.concept]}
+                        className="text-xs text-purple-400 hover:text-purple-300 transition mt-2 flex items-center gap-1"
+                      >
+                        {explaining[gap.concept] ? (
+                          <>
+                            <Loader2 size={10} className="animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          'Explain with AI'
+                        )}
+                      </button>
+                      
+                      {aiExplanation[gap.concept] && (
+                        <p className="text-xs text-gray-300 mt-2 p-2 rounded bg-purple-500/10 break-words">
+                          {aiExplanation[gap.concept]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-xl font-bold text-white">{overallMastery}%</p>
-              <p className="text-xs text-gray-500">Mastery</p>
-            </div>
-          </div>
+            )}
 
-          {/* Primary Gaps Section */}
-          {primaryGaps.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
-              <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2">
-                <AlertCircle size={16} />
-                High Priority Gaps
-              </h3>
-              <div className="space-y-3">
-                {primaryGaps.map((gap, idx) => (
-                  <div key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
-                    <div className="flex justify-between items-start mb-1">
+            {/* Secondary Gaps Section */}
+            {secondaryGaps.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                  <TrendingDown size={16} />
+                  Improvement Areas
+                </h3>
+                <div className="space-y-2">
+                  {secondaryGaps.map((gap, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 py-2 border-b border-white/10 last:border-0">
                       <div>
-                        <p className="font-medium text-white text-sm capitalize">{gap.concept?.replace(/_/g, ' ')}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getMasteryColor(gap.mastery)}`}>
-                          {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
-                        </span>
+                        <p className="font-medium text-white text-sm capitalize break-words">
+                          {gap.concept?.replace(/_/g, ' ')}
+                        </p>
+                        <span className="text-xs text-gray-400">{Math.round(gap.mastery)}% mastery</span>
                       </div>
                       <Link href={`/student/recommendations?concept=${gap.concept}`}>
-                        <button className="text-xs text-blue-400 hover:text-blue-300 transition">Get Resources</button>
+                        <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">
+                          Practice →
+                        </button>
                       </Link>
                     </div>
-                    
-                    {gap.specific_errors && gap.specific_errors.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-1">• {gap.specific_errors[0]}</p>
-                    )}
-                    
-                    <button 
-                      onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])}
-                      disabled={explaining[gap.concept]}
-                      className="text-xs text-purple-400 hover:text-purple-300 transition mt-1"
-                    >
-                      {explaining[gap.concept] ? 'Analyzing...' : 'Explain with AI'}
-                    </button>
-                    
-                    {aiExplanation[gap.concept] && (
-                      <p className="text-xs text-gray-300 mt-1 p-2 rounded bg-purple-500/10">{aiExplanation[gap.concept]}</p>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Secondary Gaps Section */}
-          {secondaryGaps.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-                <TrendingDown size={16} />
-                Improvement Areas
-              </h3>
-              <div className="space-y-2">
-                {secondaryGaps.map((gap, idx) => (
-                  <div key={idx} className="flex justify-between items-center py-2 border-b border-white/10 last:border-0">
-                    <div>
-                      <p className="font-medium text-white text-sm capitalize">{gap.concept?.replace(/_/g, ' ')}</p>
-                      <span className="text-xs text-gray-400">{Math.round(gap.mastery)}% mastery</span>
-                    </div>
-                    <Link href={`/student/recommendations?concept=${gap.concept}`}>
-                      <button className="text-xs text-blue-400 hover:text-blue-300 transition">Practice</button>
-                    </Link>
-                  </div>
-                ))}
+            {/* No Gaps State */}
+            {primaryGaps.length === 0 && secondaryGaps.length === 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8 sm:py-12">
+                <Brain size={40} className="mx-auto text-gray-600 mb-3" />
+                <h3 className="text-base font-medium text-white mb-1">No Gaps Detected</h3>
+                <p className="text-xs text-gray-500 mb-4">Complete a quiz to see your knowledge gaps</p>
+                <Link href="/student/quizzes">
+                  <button className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm hover:bg-blue-500/30 transition">
+                    Take a Quiz
+                  </button>
+                </Link>
               </div>
-            </div>
-          )}
-
-          {/* No Gaps State */}
-          {primaryGaps.length === 0 && secondaryGaps.length === 0 && (
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8">
-              <Brain size={40} className="mx-auto text-gray-600 mb-3" />
-              <h3 className="text-base font-medium text-white mb-1">No Gaps Detected</h3>
-              <p className="text-xs text-gray-500 mb-3">Complete a quiz to see your knowledge gaps</p>
-              <Link href="/student/quizzes">
-                <button className="px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-sm">Take a Quiz</button>
-              </Link>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
