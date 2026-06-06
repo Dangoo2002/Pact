@@ -5,7 +5,8 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, AlertCircle, TrendingDown, ChevronRight, Sparkles,
-  Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2, Bot
+  Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2, Bot,
+  Copy, Check
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -46,16 +47,99 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
+// ─── Formatted AI Content Component ──────────────────────────────────────────
+const FormattedAIExplanation = ({ content }) => {
+  // Parse code blocks
+  const parts = [];
+  let lastIndex = 0;
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  let match;
+  
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      const textPart = content.slice(lastIndex, match.index);
+      parts.push(<TextPart key={`text-${lastIndex}`} content={textPart} />);
+    }
+    const language = match[1] || 'code';
+    const code = match[2].trim();
+    parts.push(<CodeBlock key={`code-${match.index}`} code={code} language={language} />);
+    lastIndex = match.index + match[0].length;
+  }
+  
+  if (lastIndex < content.length) {
+    const textPart = content.slice(lastIndex);
+    parts.push(<TextPart key={`text-${lastIndex}`} content={textPart} />);
+  }
+  
+  return <div className="space-y-2">{parts}</div>;
+};
+
+const TextPart = ({ content }) => {
+  // Process bold text (**text** -> strong)
+  // Process bullet points
+  const lines = content.split('\n');
+  const processedLines = lines.map(line => {
+    // Handle bullet points
+    if (line.trim().startsWith('• ') || line.trim().startsWith('- ')) {
+      const bulletContent = line.trim().substring(2);
+      return `<div class="flex items-start gap-2 my-1"><span class="text-purple-400 flex-shrink-0">•</span><span>${bulletContent}</span></div>`;
+    }
+    // Handle numbered lists
+    if (/^\d+\.\s/.test(line.trim())) {
+      const matchNum = line.trim().match(/^(\d+)\.\s(.*)/);
+      if (matchNum) {
+        return `<div class="flex items-start gap-2 my-1"><span class="text-purple-400 font-medium flex-shrink-0">${matchNum[1]}.</span><span>${matchNum[2]}</span></div>`;
+      }
+    }
+    // Handle section headers (text followed by colon)
+    if (line.trim().endsWith(':') && line.trim().length < 50) {
+      return `<div class="font-semibold text-purple-300 mt-2 mb-1">${line}</div>`;
+    }
+    if (line.trim() === '') return '<div class="h-1"></div>';
+    return `<div>${line}</div>`;
+  }).join('');
+  
+  // Apply bold formatting
+  const withBold = processedLines.replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300 font-semibold">$1</strong>');
+  
+  return <div className="text-gray-200 leading-relaxed text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: withBold }} />;
+};
+
+const CodeBlock = ({ code, language }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  return (
+    <div className="relative my-2 rounded-lg overflow-hidden bg-[#1E2A3A] border border-white/20">
+      <div className="flex items-center justify-between px-3 py-1 bg-[#0F172A] border-b border-white/10">
+        <span className="text-xs text-gray-400 font-mono">{language}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition px-2 py-0.5 rounded hover:bg-white/10"
+        >
+          {copied ? <Check size={12} /> : <Copy size={12} />}
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <pre className="p-3 overflow-x-auto text-xs font-mono text-gray-300">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
 // ─── Skeleton Screen ──────────────────────────────────────────────────────────
 const GapsSkeleton = () => (
   <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6 animate-pulse">
-    {/* Header Skeleton */}
     <div className="mb-5">
       <div className="h-6 sm:h-7 w-40 bg-white/10 rounded-lg mb-2" />
       <div className="h-3 sm:h-4 w-64 bg-white/5 rounded-lg" />
     </div>
-
-    {/* Stats Cards Skeleton */}
     <div className="grid grid-cols-3 gap-3 mb-6">
       {[...Array(3)].map((_, i) => (
         <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
@@ -65,8 +149,6 @@ const GapsSkeleton = () => (
         </div>
       ))}
     </div>
-
-    {/* Primary Gaps Skeleton */}
     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
       <div className="h-5 w-32 bg-white/10 rounded mb-3" />
       <div className="space-y-3">
@@ -105,15 +187,12 @@ const Sidebar = ({ isOpen, onClose }) => {
   
   return (
     <>
-      {/* Backdrop */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity duration-300"
           onClick={onClose}
         />
       )}
-      
-      {/* Sidebar */}
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628] backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-white/10">
@@ -125,24 +204,17 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
             <p className="text-xs text-gray-500 mt-2">Student Portal</p>
           </div>
-          
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
-                <Link 
-                  key={item.href} 
-                  href={item.href} 
-                  onClick={onClose} 
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"
-                >
+                <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
                   <Icon size={18} />
                   <span className="text-sm">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
-          
           <div className="p-4 border-t border-white/10">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
@@ -218,14 +290,18 @@ export default function StudentGapsPage() {
         })
       });
       const data = await response.json();
+      // Clean the explanation - remove any remaining asterisks and format properly
+      let cleanExplanation = data.explanation || `Review the fundamentals of ${concept} in ${language}.`;
+      // Replace markdown bold with HTML bold equivalent for our formatter
+      cleanExplanation = cleanExplanation.replace(/\*\*(.*?)\*\*/g, '**$1**');
       setAiExplanation(prev => ({ 
         ...prev, 
-        [concept]: data.explanation || `Review the fundamentals of ${concept} in ${language}.` 
+        [concept]: cleanExplanation
       }));
     } catch (error) {
       setAiExplanation(prev => ({ 
         ...prev, 
-        [concept]: `Unable to fetch explanation for ${concept}.` 
+        [concept]: `Unable to fetch explanation for ${concept}. Please try again.` 
       }));
     } finally {
       setExplaining(prev => ({ ...prev, [concept]: false }));
@@ -254,10 +330,9 @@ export default function StudentGapsPage() {
   }
 
   if (status === 'unauthenticated') {
-    return null; // Will redirect via useEffect
+    return null;
   }
 
-  const studentName = session?.user?.name?.split(' ')[0] || 'Student';
   const showSkeleton = loading;
 
   return (
@@ -266,7 +341,7 @@ export default function StudentGapsPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Fixed Header with Welcome */}
+        {/* Fixed Header */}
         <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button 
@@ -276,7 +351,6 @@ export default function StudentGapsPage() {
               <Menu size={20} className="text-white" />
             </button>
             
-            {/* Welcome Section in Header */}
             <div className="flex-1 ml-2 md:ml-0">
               <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
                 Knowledge Gaps
@@ -286,7 +360,6 @@ export default function StudentGapsPage() {
               </p>
             </div>
 
-            {/* Notification Bell */}
             <button className="p-2 rounded-lg hover:bg-white/10 transition relative">
               <Bell size={18} className="text-gray-400" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -333,10 +406,10 @@ export default function StudentGapsPage() {
                   <AlertCircle size={16} />
                   High Priority Gaps
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {primaryGaps.map((gap, idx) => (
-                    <div key={idx} className="border-b border-white/10 pb-3 last:border-0 last:pb-0">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-1">
+                    <div key={idx} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                         <div className="flex-1">
                           <p className="font-medium text-white text-sm capitalize break-words">
                             {gap.concept?.replace(/_/g, ' ')}
@@ -371,14 +444,17 @@ export default function StudentGapsPage() {
                             Analyzing...
                           </>
                         ) : (
-                          'Explain with AI'
+                          <>
+                            <Bot size={10} />
+                            Explain with AI
+                          </>
                         )}
                       </button>
                       
                       {aiExplanation[gap.concept] && (
-                        <p className="text-xs text-gray-300 mt-2 p-2 rounded bg-purple-500/10 break-words">
-                          {aiExplanation[gap.concept]}
-                        </p>
+                        <div className="mt-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <FormattedAIExplanation content={aiExplanation[gap.concept]} />
+                        </div>
                       )}
                     </div>
                   ))}
