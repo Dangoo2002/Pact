@@ -8,9 +8,10 @@ import {
   Code, Brain, Target, Zap, ArrowRight, Users, 
   Sparkles, BookOpen, Cpu, Award, Menu, X,
   Database, Layout, BarChart3, Infinity,
-  Star, Shield, Cloud, Lock
+  Star, Shield, Cloud, Lock, LogOut, User
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { signOut } from 'next-auth/react';
 
 // Static star background component
 const StarBackground = () => {
@@ -85,27 +86,32 @@ export default function HomePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isAuthenticated = status === 'authenticated';
+  const userRole = session?.user?.role;
 
-  useEffect(() => {
-    if (status === 'authenticated') {
-      const role = session.user?.role;
-      if (role === 'student') router.push('/student');
-      else if (role === 'instructor') router.push('/instructor');
-      else if (role === 'admin') router.push('/admin');
-    }
-  }, [status, session, router]);
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
+    router.push('/');
+  };
+
+  const getDashboardPath = () => {
+    if (userRole === 'student') return '/student';
+    if (userRole === 'instructor') return '/instructor';
+    if (userRole === 'admin') return '/admin';
+    return '/student';
+  };
 
   const features = [
-    { icon: Brain, title: 'Intelligent Gap Analysis', description: 'Mistral AI identifies exactly which programming concepts you struggle with.', tags: ['Real-time', 'Pattern Recognition'] },
+    { icon: Brain, title: 'Intelligent Gap Analysis', description: 'PACT AI identifies exactly which programming concepts you struggle with.', tags: ['Real-time', 'Pattern Recognition'] },
     { icon: Target, title: 'Personalized Learning Paths', description: 'Get custom-tailored recommendations based on your unique knowledge gaps.', tags: ['Adaptive', 'Smart Sequencing'] },
     { icon: Code, title: 'Multi-Language Support', description: 'Learn and practice across 7 programming languages on one platform.', tags: ['Python', 'Java', 'JavaScript'] },
-    { icon: Zap, title: 'Mistral AI Insights', description: 'Get instant, human-like explanations with actionable advice from advanced AI.', tags: ['24/7 AI', 'Code Review'] },
+    { icon: Zap, title: 'AI-Powered Insights', description: 'Get instant, human-like explanations with actionable advice from advanced AI.', tags: ['24/7 AI', 'Code Review'] },
     { icon: BarChart3, title: 'Progress Analytics', description: 'Visual dashboards show your mastery across concepts over time.', tags: ['Metrics', 'Tracking'] },
     { icon: Infinity, title: 'Unlimited Practice', description: 'Access thousands of coding challenges adapted to your level.', tags: ['Auto-graded', 'Feedback'] },
   ];
 
   const technologies = [
-    { name: 'Mistral AI', description: 'Advanced LLM', icon: Cpu },
+    { name: 'PACT AI', description: 'Advanced LLM', icon: Cpu },
     { name: 'Next.js 14', description: 'React framework', icon: Layout },
     { name: 'PostgreSQL', description: 'Database', icon: Database },
     { name: 'Neon Tech', description: 'Serverless', icon: Cloud },
@@ -126,26 +132,39 @@ export default function HomePage() {
       <div className="fixed top-0 left-0 right-0 z-50 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="bg-blue-500/20 p-2 rounded-xl backdrop-blur-sm">
                 <Code className="w-6 h-6 text-blue-400" />
               </div>
               <span className="text-2xl font-bold text-white">PACT</span>
               <span className="hidden md:inline text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400">
-                Powered by Mistral AI
+                Powered by Advanced AI
               </span>
-            </div>
+            </Link>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-4">
               {status === 'loading' ? (
                 <div className="h-9 w-20 bg-white/10 animate-pulse rounded-full" />
-              ) : session ? (
-                <Link href={session.user?.role === 'student' ? '/student' : '/dashboard'}>
-                  <Button className="backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-5 py-2 text-sm">
-                    Dashboard
-                  </Button>
-                </Link>
+              ) : isAuthenticated ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm text-gray-300">{session?.user?.name?.split(' ')[0] || 'User'}</span>
+                  </div>
+                  <Link href={getDashboardPath()}>
+                    <Button className="backdrop-blur-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-full px-5 py-2 text-sm">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-4 py-2 text-sm text-gray-400 hover:text-white transition flex items-center gap-1"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               ) : (
                 <div className="flex gap-2">
                   <Link href="/login">
@@ -179,16 +198,32 @@ export default function HomePage() {
           <div className="md:hidden border-t border-white/10 bg-[#0A1628]/95 backdrop-blur-xl">
             <div className="p-4 flex flex-col gap-3">
               <div className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-400 text-center mb-2">
-                Powered by Mistral AI
+                Powered by Advanced AI
               </div>
               {status === 'loading' ? (
                 <div className="h-9 w-full bg-white/10 animate-pulse rounded-full" />
-              ) : session ? (
-                <Link href={session.user?.role === 'student' ? '/student' : '/dashboard'} onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full py-2">
-                    Dashboard
-                  </Button>
-                </Link>
+              ) : isAuthenticated ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10 mb-2">
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm text-gray-300">{session?.user?.name || 'User'}</span>
+                  </div>
+                  <Link href={getDashboardPath()} onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full backdrop-blur-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-full py-2">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full backdrop-blur-xl bg-white/5 hover:bg-white/10 border border-white/10 rounded-full py-2 text-gray-400 hover:text-white transition flex items-center justify-center gap-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </>
               ) : (
                 <>
                   <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
@@ -217,33 +252,44 @@ export default function HomePage() {
               <div>
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-6">
                   <Sparkles className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-medium text-blue-400">Powered by Mistral AI</span>
+                  <span className="text-sm font-medium text-blue-400">Powered by Advanced AI</span>
                 </div>
                 
                 <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
                   Master Programming with{' '}
                   <span className="text-blue-400">
-                    Mistral AI
+                    PACT
                   </span>
                 </h1>
                 
                 <p className="text-base md:text-lg text-gray-400 max-w-2xl mb-8 leading-relaxed">
                   PACT identifies your knowledge gaps and delivers custom learning paths across 7 programming languages. 
-                  Powered by Mistral AI for deep code understanding and intelligent feedback.
+                  Powered by advanced AI for deep code understanding and intelligent feedback.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Link href="/signup">
-                    <Button className="backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-6 py-2 text-sm">
-                      Start Learning Free
-                      <ArrowRight className="w-3 h-3 ml-1" />
-                    </Button>
-                  </Link>
-                  <Link href="/login">
-                    <Button variant="ghost" className="backdrop-blur-xl hover:bg-white/10 rounded-full px-6 py-2 text-sm">
-                      Sign In
-                    </Button>
-                  </Link>
+                  {!isAuthenticated ? (
+                    <>
+                      <Link href="/signup">
+                        <Button className="backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-6 py-2 text-sm">
+                          Start Learning Free
+                          <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                      <Link href="/login">
+                        <Button variant="ghost" className="backdrop-blur-xl hover:bg-white/10 rounded-full px-6 py-2 text-sm">
+                          Sign In
+                        </Button>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link href={getDashboardPath()}>
+                      <Button className="backdrop-blur-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-full px-6 py-2 text-sm">
+                        Go to Dashboard
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -255,7 +301,7 @@ export default function HomePage() {
                       <div className="w-3 h-3 rounded-full bg-yellow-500" />
                       <div className="w-3 h-3 rounded-full bg-green-500" />
                     </div>
-                    <div className="text-xs text-gray-500 font-mono">Mistral AI Analytics</div>
+                    <div className="text-xs text-gray-500 font-mono">PACT AI Analytics</div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mb-6">
@@ -346,7 +392,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {[
                 { step: '01', title: 'Adaptive Assessment', desc: 'Take intelligent quizzes that adapt to your skill level' },
-                { step: '02', title: 'Mistral AI Analysis', desc: 'Advanced AI analyzes your code and identifies gaps' },
+                { step: '02', title: 'AI-Powered Analysis', desc: 'Advanced AI analyzes your code and identifies gaps' },
                 { step: '03', title: 'Personalized Learning', desc: 'Receive custom-tailored resources based on your gaps' },
               ].map((item, idx) => (
                 <div key={idx} className="text-center">
@@ -367,7 +413,7 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-white">
               Modern Technology Stack
             </h2>
-            <p className="text-gray-400 text-base md:text-lg">Powered by industry-leading Mistral AI and scalable architecture</p>
+            <p className="text-gray-400 text-base md:text-lg">Powered by industry-leading AI and scalable architecture</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
@@ -398,9 +444,9 @@ export default function HomePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
               {[
-                { name: 'Kennedy Wanakacha', role: 'CS Student', content: 'PACT transformed how I learn programming. The Mistral AI gap analysis helped me understand my weak points.' },
+                { name: 'Kennedy Wanakacha', role: 'CS Student', content: 'PACT transformed how I learn programming. The AI gap analysis helped me understand my weak points.' },
                 { name: 'Alvine Allan', role: 'Software Engineering Student', content: 'The adaptive quizzes and real-time AI feedback completely changed my learning experience.' },
-                { name: 'Princeton Mwachala', role: 'Computer Science Student', content: 'PACT\'s multi-language support with Mistral AI is incredible. Learning multiple languages on one platform is a game-changer.' },
+                { name: 'Princeton Mwachala', role: 'Computer Science Student', content: 'PACT\'s multi-language support is incredible. Learning multiple languages on one platform is a game-changer.' },
               ].map((testimonial, idx) => (
                 <div key={idx} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:border-blue-500/50 transition-all">
                   <div className="flex gap-1 mb-4">
@@ -426,20 +472,31 @@ export default function HomePage() {
               Ready to Accelerate Your Coding Journey?
             </h2>
             <p className="text-base md:text-lg text-gray-400 mb-8 max-w-2xl mx-auto">
-              Join thousands of students using PACT with Mistral AI to master programming through personalized learning.
+              Join thousands of students using PACT with advanced AI to master programming through personalized learning.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/signup">
-                <Button className="backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-6 py-2 text-sm">
-                  Start Learning Free
-                  <ArrowRight className="w-3 h-3 ml-1" />
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button variant="ghost" className="backdrop-blur-xl hover:bg-white/10 rounded-full px-6 py-2 text-sm">
-                  Sign In
-                </Button>
-              </Link>
+              {!isAuthenticated ? (
+                <>
+                  <Link href="/signup">
+                    <Button className="backdrop-blur-xl bg-white/10 hover:bg-white/20 border border-white/20 rounded-full px-6 py-2 text-sm">
+                      Start Learning Free
+                      <ArrowRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button variant="ghost" className="backdrop-blur-xl hover:bg-white/10 rounded-full px-6 py-2 text-sm">
+                      Sign In
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <Link href={getDashboardPath()}>
+                  <Button className="backdrop-blur-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-full px-6 py-2 text-sm">
+                    Go to Dashboard
+                    <ArrowRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -455,7 +512,7 @@ export default function HomePage() {
                   </div>
                   <span className="text-xl font-bold text-white">PACT</span>
                 </div>
-                <p className="text-sm text-gray-500 leading-relaxed">Personalized Adaptive Coding Tutor — Powered by Mistral AI.</p>
+                <p className="text-sm text-gray-500 leading-relaxed">Personalized Adaptive Coding Tutor — Powered by Advanced AI.</p>
               </div>
               <div>
                 <h4 className="font-semibold mb-3 text-white text-sm">Platform</h4>
@@ -482,7 +539,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="text-center text-xs text-gray-500 pt-8 border-t border-white/10">
-              <p>&copy; 2026 PACT - Personalized Adaptive Coding Tutor. Powered by Mistral AI. All rights reserved.</p>
+              <p>&copy; 2026 PACT - Personalized Adaptive Coding Tutor. Powered by Advanced AI. All rights reserved.</p>
             </div>
           </div>
         </footer>
