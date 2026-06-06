@@ -104,7 +104,7 @@ const RecommendationsSkeleton = () => (
             <div className="h-3 w-16 bg-white/5 rounded" />
             <div className="h-3 w-16 bg-white/5 rounded" />
           </div>
-          <div className="h-9 w-full bg-white/10 rounded-lg" />
+          <div className="h-5 w-32 bg-white/10 rounded" />
         </div>
       ))}
     </div>
@@ -196,7 +196,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// ─── Resource Card Component ──────────────────────────────────────────────────
+// ─── Resource Card Component with Blue Link ───────────────────────────────────
 const typeIcons = {
   video: Video,
   article: FileText,
@@ -224,19 +224,19 @@ const ResourceCard = ({ resource, onClick }) => {
   const colorClass = typeColors[resource.type] || 'bg-gray-500/20 text-gray-400 border-gray-500/30';
   
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-1 group">
-      <div className="p-5">
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden hover:border-blue-500/30 transition-all duration-300 hover:-translate-y-1 group flex flex-col h-full">
+      <div className="p-5 flex flex-col flex-1">
         <div className="flex items-start justify-between mb-3">
           <div className={`p-2 rounded-lg ${colorClass}`}>
             <Icon size={18} />
           </div>
           {resource.priority === 'high' && (
-            <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-400">
+            <span className="text-xs px-2 py-1 rounded-full bg-red-500/20 text-red-400 whitespace-nowrap ml-2">
               High Priority
             </span>
           )}
           {resource.difficulty && (
-            <span className={`text-xs px-2 py-1 rounded-full ${
+            <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ml-2 ${
               resource.difficulty === 'beginner' ? 'bg-green-500/20 text-green-400' :
               resource.difficulty === 'intermediate' ? 'bg-yellow-500/20 text-yellow-400' :
               'bg-red-500/20 text-red-400'
@@ -247,9 +247,9 @@ const ResourceCard = ({ resource, onClick }) => {
         </div>
         
         <h3 className="font-semibold text-white mb-2 line-clamp-2">{resource.title}</h3>
-        <p className="text-sm text-gray-400 mb-4 line-clamp-2">{resource.description}</p>
+        <p className="text-sm text-gray-400 mb-4 line-clamp-2 flex-1">{resource.description}</p>
         
-        <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
+        <div className="flex items-center gap-3 text-xs text-gray-500 mb-4 flex-wrap">
           {resource.duration_minutes && (
             <div className="flex items-center gap-1">
               <Clock size={12} />
@@ -262,13 +262,20 @@ const ResourceCard = ({ resource, onClick }) => {
           </div>
         </div>
         
-        <button 
-          onClick={() => onClick(resource)}
-          className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition flex items-center justify-center gap-2 group"
+        {/* Blue Link instead of button - mobile friendly */}
+        <a
+          href={resource.url}
+          onClick={(e) => {
+            e.preventDefault();
+            onClick(resource);
+          }}
+          className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors duration-200 text-sm font-medium group/link w-fit"
+          target="_blank"
+          rel="noopener noreferrer"
         >
           <span>Access Resource</span>
-          <ExternalLink size={14} className="group-hover:translate-x-0.5 transition" />
-        </button>
+          <ExternalLink size={14} className="group-hover/link:translate-x-0.5 transition-transform" />
+        </a>
       </div>
     </div>
   );
@@ -331,22 +338,93 @@ export default function RecommendationsPage() {
         const finalResources = resources.slice(0, 4);
         const finalExercises = exercises.slice(0, 2);
         
-        // If we don't have enough resources, generate fallback ones
+        // Combine resources and exercises
         let combined = [...finalResources, ...finalExercises];
         
-        // Ensure we have exactly 6 items
-        while (combined.length < 6) {
-          combined.push({
-            id: `fallback_${combined.length}`,
-            title: `Practice ${analysisInfo?.concept || 'Programming'} Concepts`,
-            type: 'exercise',
-            url: `/student/quizzes?concept=${analysisInfo?.concept || ''}`,
-            description: `Complete interactive exercises to strengthen your understanding.`,
+        // If we don't have enough items, generate fallback ones
+        const conceptName = data.concept || 'programming';
+        const formattedConcept = conceptName.replace(/_/g, ' ');
+        
+        const fallbackResources = [
+          {
+            id: `fallback_video_${Date.now()}`,
+            title: `${formattedConcept} Tutorial for Beginners`,
+            type: 'video',
+            url: `https://www.youtube.com/results?search_query=${encodeURIComponent(formattedConcept)}+tutorial`,
+            description: `Watch this comprehensive video tutorial to understand ${formattedConcept} fundamentals.`,
+            priority: 'high',
+            duration_minutes: 15,
+            difficulty: 'beginner'
+          },
+          {
+            id: `fallback_article_${Date.now()}`,
+            title: `${formattedConcept} - Complete Guide`,
+            type: 'article',
+            url: `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(formattedConcept)}`,
+            description: `Read this detailed guide covering all aspects of ${formattedConcept}.`,
+            priority: 'high',
+            duration_minutes: 20,
+            difficulty: 'beginner'
+          },
+          {
+            id: `fallback_interactive_${Date.now()}`,
+            title: `Interactive ${formattedConcept} Practice`,
+            type: 'interactive',
+            url: `/student/quizzes?concept=${conceptName}`,
+            description: `Hands-on interactive exercises to test your ${formattedConcept} knowledge.`,
+            priority: 'medium',
+            duration_minutes: 25,
+            difficulty: 'intermediate'
+          },
+          {
+            id: `fallback_docs_${Date.now()}`,
+            title: `${formattedConcept} Documentation & Examples`,
+            type: 'documentation',
+            url: `https://www.w3schools.com/python/python_${conceptName.toLowerCase()}.asp`,
+            description: `Official documentation with code examples for ${formattedConcept}.`,
             priority: 'medium',
             duration_minutes: 30,
-            difficulty: 'beginner'
-          });
+            difficulty: 'intermediate'
+          }
+        ];
+        
+        const fallbackExercises = [
+          {
+            id: `fallback_exercise_1_${Date.now()}`,
+            title: `Practice: Master ${formattedConcept} Fundamentals`,
+            type: 'exercise',
+            url: `/student/quizzes?concept=${conceptName}`,
+            description: `Complete these exercises to strengthen your understanding of core ${formattedConcept} concepts.`,
+            priority: 'high',
+            duration_minutes: 35,
+            difficulty: 'intermediate'
+          },
+          {
+            id: `fallback_exercise_2_${Date.now()}`,
+            title: `Challenge Yourself: ${formattedConcept} Advanced Problems`,
+            type: 'exercise',
+            url: `/student/quizzes?concept=${conceptName}`,
+            description: `Test your skills with challenging problems and real-world scenarios.`,
+            priority: 'medium',
+            duration_minutes: 45,
+            difficulty: 'advanced'
+          }
+        ];
+        
+        // Fill missing resources
+        while (combined.filter(r => r.type !== 'exercise').length < 4) {
+          const fallback = fallbackResources[combined.filter(r => r.type !== 'exercise').length % fallbackResources.length];
+          combined.push({ ...fallback, concept: conceptName });
         }
+        
+        // Fill missing exercises
+        while (combined.filter(r => r.type === 'exercise').length < 2) {
+          const fallbackEx = fallbackExercises[combined.filter(r => r.type === 'exercise').length % fallbackExercises.length];
+          combined.push({ ...fallbackEx, concept: conceptName });
+        }
+        
+        // Ensure exactly 6 items total
+        combined = combined.slice(0, 6);
         
         setRecommendations(combined);
         setAnalysisInfo({
@@ -460,7 +538,13 @@ export default function RecommendationsPage() {
             </Link>
           )}
 
-         
+          {/* Page Title */}
+          <div className="mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-white">Personalized Recommendations</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              {sessionId ? 'AI-powered resources based on your recent quiz' : 'Tailored learning resources to close your knowledge gaps'}
+            </p>
+          </div>
 
           {/* Show skeleton while loading */}
           {!dataReady || loading ? (
@@ -535,7 +619,7 @@ export default function RecommendationsPage() {
                 <>
                   <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                     <Sparkles size={18} className="text-yellow-400" />
-                    Recommended Learning Resources
+                    Recommended Learning Resources ({recommendations.filter(r => r.type !== 'exercise').length} Resources + {recommendations.filter(r => r.type === 'exercise').length} Exercises)
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recommendations.map((rec, idx) => (
