@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
+  Code, Clock, CheckCircle, XCircle, Loader2, 
   Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
-  ChevronRight, AlertCircle
+  ChevronRight
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -67,23 +67,18 @@ const QuizSkeleton = () => (
     <div className="md:ml-64">
       <div className="pt-20 px-4 md:px-6 pb-6 animate-pulse">
         <div className="max-w-3xl mx-auto">
-          <div className="mb-6">
-            <div className="flex justify-between mb-2">
-              <div className="h-4 w-32 bg-white/10 rounded" />
-              <div className="h-4 w-24 bg-white/10 rounded" />
-            </div>
-            <div className="h-2 bg-white/10 rounded-full"><div className="h-full w-1/3 bg-blue-500/30 rounded-full" /></div>
-          </div>
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-5 md:p-6">
             <div className="flex justify-between mb-4 pb-2 border-b border-white/10">
               <div className="h-5 w-32 bg-white/10 rounded" />
               <div className="h-5 w-24 bg-white/10 rounded" />
             </div>
             <div className="h-24 w-full bg-white/10 rounded mb-6" />
             <div className="space-y-3 mb-6">
-              {[1,2,3,4].map(i => <div key={i} className="h-16 bg-white/10 rounded" />)}
+              {[1,2,3,4].map(i => <div key={i} className="h-14 bg-white/10 rounded" />)}
             </div>
-            <div className="h-10 w-full bg-white/10 rounded" />
+            <div className="h-10 w-full bg-white/10 rounded mb-4" />
+            <div className="h-2 bg-white/10 rounded-full"><div className="h-full w-1/3 bg-blue-500/30 rounded-full" /></div>
+            <div className="flex justify-between mt-2"><div className="h-3 w-24 bg-white/10 rounded" /><div className="h-3 w-16 bg-white/10 rounded" /></div>
           </div>
         </div>
       </div>
@@ -99,6 +94,36 @@ const formatAIExplanation = (text) => {
     .replace(/\*/g, '')
     .replace(/`/g, '')
     .replace(/#{1,6}\s/g, '');
+};
+
+// Code Artifact Component
+const CodeArtifact = ({ code, language, onChange, disabled }) => {
+  return (
+    <div className="rounded-lg overflow-hidden border border-white/10 bg-black/50">
+      <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <Code size={14} className="text-blue-400" />
+          <span className="text-xs text-gray-400">{language || 'python'}</span>
+        </div>
+        <div className="flex gap-1">
+          <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
+          <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
+          <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
+        </div>
+      </div>
+      <textarea
+        value={code}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        rows={8}
+        className="w-full font-mono text-xs md:text-sm p-3 bg-black/50 text-gray-300 placeholder-gray-600 focus:outline-none resize-y"
+        placeholder='def solution():
+    # Write your code here
+    pass'
+        spellCheck={false}
+      />
+    </div>
+  );
 };
 
 export default function QuizPage() {
@@ -311,41 +336,51 @@ export default function QuizPage() {
         <StarBackground />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="md:ml-64 relative z-10 min-h-screen flex items-center justify-center p-4">
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8 max-w-md w-full text-center">
-            {percentage >= 70 ? <CheckCircle size={56} className="md:text-[64px] text-green-400 mx-auto mb-4" /> : <XCircle size={56} className="md:text-[64px] text-red-400 mx-auto mb-4" />}
-            <h2 className="text-xl md:text-2xl font-bold text-white mb-2">Quiz Completed</h2>
-            <p className="text-3xl md:text-4xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
-            <p className="text-gray-400 mb-6">You scored {percentage}%</p>
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-5 md:p-8 max-w-md w-full">
+            <div className="text-center">
+              {percentage >= 70 ? (
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle size={32} className="md:text-[36px] text-green-400" />
+                </div>
+              ) : (
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                  <XCircle size={32} className="md:text-[36px] text-red-400" />
+                </div>
+              )}
+              <h2 className="text-xl md:text-2xl font-bold text-white mb-2">Quiz Completed</h2>
+              <p className="text-3xl md:text-4xl font-bold text-blue-400 mb-2">{score}/{totalQuestions}</p>
+              <p className="text-gray-400 text-sm md:text-base mb-6">You scored {percentage}%</p>
 
-            {!savedToDatabase ? (
-              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-4 mb-6 border border-blue-500/30">
-                <p className="text-sm text-blue-300 mb-3">Get AI-Powered Insights</p>
-                <button
-                  onClick={handleSaveAndAnalyze}
-                  disabled={isSaving}
-                  className="w-full py-2 rounded-lg bg-blue-500/30 border border-blue-500/50 text-white hover:bg-blue-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
-                >
-                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                  {isSaving ? 'Analyzing with AI...' : 'Get AI Recommendations'}
-                </button>
-              </div>
-            ) : (
-              <div className="bg-green-500/10 rounded-xl p-3 mb-6 border border-green-500/30">
-                <p className="text-sm text-green-400">✅ Analysis complete! Check your recommendations.</p>
-              </div>
-            )}
+              {!savedToDatabase ? (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
+                  <p className="text-sm text-blue-400 mb-3">Get AI-Powered Insights</p>
+                  <button
+                    onClick={handleSaveAndAnalyze}
+                    disabled={isSaving}
+                    className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {isSaving ? 'Analyzing with AI...' : 'Get AI Recommendations'}
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-6">
+                  <p className="text-sm text-green-400 text-center">Analysis complete! Check your recommendations.</p>
+                </div>
+              )}
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link href="/student">
-                <button className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition text-sm w-full sm:w-auto">
-                  Dashboard
-                </button>
-              </Link>
-              <Link href={`/student/recommendations?sessionId=${sessionId}`}>
-                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm w-full sm:w-auto">
-                  View Recommendations →
-                </button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link href="/student" className="w-full sm:w-auto">
+                  <button className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-sm">
+                    Dashboard
+                  </button>
+                </Link>
+                <Link href={`/student/recommendations?sessionId=${sessionId}`} className="w-full sm:w-auto">
+                  <button className="w-full px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm flex items-center justify-center gap-2">
+                    View Recommendations <ChevronRight size={14} />
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -357,13 +392,15 @@ export default function QuizPage() {
     return <QuizSkeleton />;
   }
 
+  const isCodeQuestion = currentQuestion?.type === 'code_writing' || currentQuestion?.code_required;
+
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Header with timer only - no back button */}
+        {/* Header with timer only */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
@@ -371,8 +408,8 @@ export default function QuizPage() {
             </button>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Clock size={16} className="text-blue-400" />
-                <span className={`font-mono ${timeLeft < 60 ? 'text-red-400 animate-pulse' : 'text-gray-300'}`}>
+                <Clock size={14} className="md:text-[16px] text-blue-400" />
+                <span className={`font-mono text-sm md:text-base ${timeLeft < 60 ? 'text-red-400 animate-pulse' : 'text-gray-300'}`}>
                   {formatTime(timeLeft)}
                 </span>
               </div>
@@ -380,27 +417,13 @@ export default function QuizPage() {
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
+        <div className="p-3 md:p-6">
           <div className="max-w-3xl mx-auto">
-            {/* Progress Bar - Always visible */}
-            <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-400 mb-2">
-                <span>Question {questionsAnswered + 1} of {totalQuestions}</span>
-                <span>Score: {score}/{totalQuestions}</span>
-              </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
-                  style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} 
-                />
-              </div>
-            </div>
-
             {/* Question Card */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 md:p-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Code size={18} className="text-blue-400" />
+                  <Code size={16} className="md:text-[18px] text-blue-400" />
                   <span className="text-xs md:text-sm font-medium text-gray-300">
                     {quizConcept?.replace(/_/g, ' ')} • {quizLanguage}
                   </span>
@@ -415,7 +438,7 @@ export default function QuizPage() {
                 </button>
               </div>
 
-              <h3 className="text-base md:text-lg font-medium text-white mb-6">{currentQuestion?.text}</h3>
+              <h3 className="text-sm md:text-lg font-medium text-white mb-4 md:mb-6">{currentQuestion?.text}</h3>
 
               {/* AI Hint */}
               {aiHint && (
@@ -425,12 +448,12 @@ export default function QuizPage() {
               )}
 
               {/* Multiple Choice Options */}
-              {currentQuestion?.type !== 'code_writing' && currentQuestion?.options && (
-                <div className="space-y-3 mb-6">
+              {!isCodeQuestion && currentQuestion?.options && (
+                <div className="space-y-2 md:space-y-3 mb-6">
                   {currentQuestion.options.map((option, idx) => (
                     <label 
                       key={idx} 
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                      className={`flex items-center gap-2 md:gap-3 p-2 md:p-3 rounded-lg border cursor-pointer transition ${
                         selectedAnswer === option ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 hover:bg-white/5'
                       } ${feedback !== null ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
@@ -441,33 +464,31 @@ export default function QuizPage() {
                         checked={selectedAnswer === option} 
                         onChange={() => setSelectedAnswer(option)} 
                         disabled={feedback !== null} 
-                        className="w-4 h-4 text-blue-500" 
+                        className="w-3.5 h-3.5 md:w-4 md:h-4 text-blue-500" 
                       />
-                      <span className="text-sm text-gray-300">{String.fromCharCode(65 + idx)}. {option}</span>
+                      <span className="text-xs md:text-sm text-gray-300">{String.fromCharCode(65 + idx)}. {option}</span>
                     </label>
                   ))}
                 </div>
               )}
 
-              {/* Code Writing Area */}
-              {currentQuestion?.type === 'code_writing' && (
+              {/* Code Artifact for code questions */}
+              {isCodeQuestion && (
                 <div className="mb-6">
-                  <textarea 
-                    value={codeAnswer} 
-                    onChange={(e) => setCodeAnswer(e.target.value)} 
-                    disabled={feedback !== null} 
-                    rows={8} 
-                    className="w-full font-mono text-xs md:text-sm p-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 resize-y"
-                    placeholder='def solution():\n    # Write your code here\n    pass' 
+                  <CodeArtifact
+                    code={codeAnswer}
+                    language={quizLanguage}
+                    onChange={setCodeAnswer}
+                    disabled={feedback !== null}
                   />
                 </div>
               )}
 
               {/* Feedback */}
               {feedback && (
-                <div className={`p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                  <p className={`text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                    {feedback.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                <div className={`p-3 md:p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+                  <p className={`text-xs md:text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                    {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
                   </p>
                   <p className="text-xs md:text-sm text-gray-400">{feedback.explanation}</p>
                 </div>
@@ -477,11 +498,26 @@ export default function QuizPage() {
               <button 
                 onClick={handleAnswerSubmit} 
                 disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
-                className="w-full py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+                className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
               >
-                {submitting && <Loader2 size={16} className="animate-spin" />}
-                {submitting ? 'Processing...' : feedback ? 'Next Question →' : 'Submit Answer'}
+                {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
+                {submitting ? 'Processing...' : feedback ? 'Next Question' : 'Submit Answer'}
+                {!submitting && feedback && <ChevronRight size={14} className="md:text-[16px]" />}
               </button>
+            </div>
+
+            {/* Progress Bar - Placed BELOW the question card for full visibility on all screens */}
+            <div className="mt-4 md:mt-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4">
+              <div className="flex justify-between text-xs md:text-sm text-gray-400 mb-2">
+                <span>Question {questionsAnswered + 1} of {totalQuestions}</span>
+                <span>Score: {score} / {totalQuestions}</span>
+              </div>
+              <div className="h-1.5 md:h-2 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                  style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} 
+                />
+              </div>
             </div>
           </div>
         </div>
