@@ -6,10 +6,12 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, ChevronLeft,
-  Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save
+  Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
+  ChevronRight, AlertCircle
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
+// Star Background Component
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -33,6 +35,7 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
+// Sidebar Component
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -57,8 +60,49 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
+// Quiz Skeleton Loader
+const QuizSkeleton = () => (
+  <div className="min-h-screen bg-[#0A1628]">
+    <StarBackground />
+    <div className="md:ml-64">
+      <div className="pt-20 px-4 md:px-6 pb-6 animate-pulse">
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-6">
+            <div className="flex justify-between mb-2">
+              <div className="h-4 w-32 bg-white/10 rounded" />
+              <div className="h-4 w-24 bg-white/10 rounded" />
+            </div>
+            <div className="h-2 bg-white/10 rounded-full"><div className="h-full w-1/3 bg-blue-500/30 rounded-full" /></div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+            <div className="flex justify-between mb-4 pb-2 border-b border-white/10">
+              <div className="h-5 w-32 bg-white/10 rounded" />
+              <div className="h-5 w-24 bg-white/10 rounded" />
+            </div>
+            <div className="h-24 w-full bg-white/10 rounded mb-6" />
+            <div className="space-y-3 mb-6">
+              {[1,2,3,4].map(i => <div key={i} className="h-16 bg-white/10 rounded" />)}
+            </div>
+            <div className="h-10 w-full bg-white/10 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Format AI explanation without markdown
+const formatAIExplanation = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/`/g, '')
+    .replace(/#{1,6}\s/g, '');
+};
+
 export default function QuizPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId;
@@ -76,7 +120,7 @@ export default function QuizPage() {
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
+  const [timeLeft, setTimeLeft] = useState(300);
   const [aiHint, setAiHint] = useState(null);
   const [gettingHint, setGettingHint] = useState(false);
   const [allAnswers, setAllAnswers] = useState([]);
@@ -85,15 +129,17 @@ export default function QuizPage() {
   const [quizConcept, setQuizConcept] = useState('');
   const [quizLanguage, setQuizLanguage] = useState('');
 
+  // Auth check
   useEffect(() => {
-    if (!session) {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
-    if (sessionId) {
+    if (status === 'authenticated' && sessionId) {
       loadQuizData();
     }
-  }, [session, sessionId]);
+  }, [status, session, sessionId, router]);
 
   const loadQuizData = async () => {
     setLoading(true);
@@ -119,8 +165,9 @@ export default function QuizPage() {
     }
   };
 
+  // Timer
   useEffect(() => {
-    if (quizCompleted || loading) return;
+    if (quizCompleted || loading || !currentQuestion) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -132,7 +179,7 @@ export default function QuizPage() {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [quizCompleted, loading]);
+  }, [quizCompleted, loading, currentQuestion]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -154,7 +201,7 @@ export default function QuizPage() {
         })
       });
       const data = await response.json();
-      setAiHint(data.explanation || "Think about the definition carefully.");
+      setAiHint(formatAIExplanation(data.explanation || "Think about the definition carefully."));
     } catch (error) {
       setAiHint("Think about the concept carefully. Review the basics and try again.");
     } finally {
@@ -186,7 +233,7 @@ export default function QuizPage() {
       
       setFeedback({
         isCorrect: result.is_correct,
-        explanation: result.explanation
+        explanation: formatAIExplanation(result.explanation)
       });
       
       setAllAnswers(prev => [...prev, {
@@ -214,7 +261,7 @@ export default function QuizPage() {
           setCodeAnswer('');
           setFeedback(null);
           setSubmitting(false);
-        }, 2000);
+        }, 1500);
       } else {
         setSubmitting(false);
       }
@@ -253,8 +300,8 @@ export default function QuizPage() {
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>;
+  if (status === 'loading' || (loading && !quizCompleted)) {
+    return <QuizSkeleton />;
   }
 
   if (quizCompleted) {
@@ -262,11 +309,12 @@ export default function QuizPage() {
     return (
       <div className="min-h-screen bg-[#0A1628] relative">
         <StarBackground />
-        <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8 max-w-md w-full text-center">
-            {percentage >= 70 ? <CheckCircle size={64} className="text-green-400 mx-auto mb-4" /> : <XCircle size={64} className="text-red-400 mx-auto mb-4" />}
-            <h2 className="text-2xl font-bold text-white mb-2">Quiz Completed</h2>
-            <p className="text-3xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="md:ml-64 relative z-10 min-h-screen flex items-center justify-center p-4">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 md:p-8 max-w-md w-full text-center">
+            {percentage >= 70 ? <CheckCircle size={56} className="md:text-[64px] text-green-400 mx-auto mb-4" /> : <XCircle size={56} className="md:text-[64px] text-red-400 mx-auto mb-4" />}
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-2">Quiz Completed</h2>
+            <p className="text-3xl md:text-4xl font-bold text-blue-400 mb-4">{score}/{totalQuestions}</p>
             <p className="text-gray-400 mb-6">You scored {percentage}%</p>
 
             {!savedToDatabase ? (
@@ -275,27 +323,27 @@ export default function QuizPage() {
                 <button
                   onClick={handleSaveAndAnalyze}
                   disabled={isSaving}
-                  className="w-full py-2 rounded-lg bg-blue-500/30 border border-blue-500/50 text-white hover:bg-blue-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-2 rounded-lg bg-blue-500/30 border border-blue-500/50 text-white hover:bg-blue-500/50 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
                 >
-                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {isSaving ? 'Analyzing with AI...' : 'Save & Get AI Recommendations'}
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  {isSaving ? 'Analyzing with AI...' : 'Get AI Recommendations'}
                 </button>
               </div>
             ) : (
               <div className="bg-green-500/10 rounded-xl p-3 mb-6 border border-green-500/30">
-                <p className="text-sm text-green-400">Analysis complete! Check your recommendations.</p>
+                <p className="text-sm text-green-400">✅ Analysis complete! Check your recommendations.</p>
               </div>
             )}
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link href="/student">
-                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition">
-                  Back to Dashboard
+                <button className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20 transition text-sm w-full sm:w-auto">
+                  Dashboard
                 </button>
               </Link>
               <Link href={`/student/recommendations?sessionId=${sessionId}`}>
-                <button className="px-4 py-2 rounded-lg border border-white/10 text-gray-400 hover:bg-white/10 transition">
-                  View Recommendations
+                <button className="px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm w-full sm:w-auto">
+                  View Recommendations →
                 </button>
               </Link>
             </div>
@@ -306,60 +354,132 @@ export default function QuizPage() {
   }
 
   if (!currentQuestion) {
-    return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>;
+    return <QuizSkeleton />;
   }
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
       <div className="md:ml-64">
+        {/* Header with timer only - no back button */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
-            <div className="flex items-center gap-3"><div className="flex items-center gap-2"><Clock size={16} className="text-blue-400" /><span className={timeLeft < 60 ? 'text-red-400' : 'text-gray-300'}>{formatTime(timeLeft)}</span></div></div>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-blue-400" />
+                <span className={`font-mono ${timeLeft < 60 ? 'text-red-400 animate-pulse' : 'text-gray-300'}`}>
+                  {formatTime(timeLeft)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+
         <div className="p-4 md:p-6">
           <div className="max-w-3xl mx-auto">
-            <Link href="/student/quizzes" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-white mb-4 transition"><ChevronLeft size={16} /> Back to Quizzes</Link>
+            {/* Progress Bar - Always visible */}
             <div className="mb-6">
-              <div className="flex justify-between text-sm text-gray-400 mb-2"><span>Question {questionsAnswered + 1} of {totalQuestions}</span><span>Score: {score}</span></div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} /></div>
+              <div className="flex justify-between text-sm text-gray-400 mb-2">
+                <span>Question {questionsAnswered + 1} of {totalQuestions}</span>
+                <span>Score: {score}/{totalQuestions}</span>
+              </div>
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500"
+                  style={{ width: `${((questionsAnswered + 1) / totalQuestions) * 100}%` }} 
+                />
+              </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
-                <div className="flex items-center gap-2"><Code size={18} className="text-blue-400" /><span className="text-sm font-medium text-gray-300">Question {questionsAnswered + 1}</span></div>
-                <button onClick={getAiHint} disabled={gettingHint || feedback !== null} className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50">
+
+            {/* Question Card */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 md:p-6">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Code size={18} className="text-blue-400" />
+                  <span className="text-xs md:text-sm font-medium text-gray-300">
+                    {quizConcept?.replace(/_/g, ' ')} • {quizLanguage}
+                  </span>
+                </div>
+                <button 
+                  onClick={getAiHint} 
+                  disabled={gettingHint || feedback !== null} 
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50"
+                >
                   {gettingHint ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
                   {gettingHint ? 'Getting hint...' : 'Get AI Hint'}
                 </button>
               </div>
-              <h3 className="text-lg font-medium text-white mb-6">{currentQuestion?.text}</h3>
-              {aiHint && (<div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20"><p className="text-sm text-purple-300">{aiHint}</p></div>)}
+
+              <h3 className="text-base md:text-lg font-medium text-white mb-6">{currentQuestion?.text}</h3>
+
+              {/* AI Hint */}
+              {aiHint && (
+                <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <p className="text-xs md:text-sm text-purple-300">{aiHint}</p>
+                </div>
+              )}
+
+              {/* Multiple Choice Options */}
               {currentQuestion?.type !== 'code_writing' && currentQuestion?.options && (
                 <div className="space-y-3 mb-6">
                   {currentQuestion.options.map((option, idx) => (
-                    <label key={idx} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${selectedAnswer === option ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 hover:bg-white/5'} ${feedback !== null ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                      <input type="radio" name="answer" value={option} checked={selectedAnswer === option} onChange={() => setSelectedAnswer(option)} disabled={feedback !== null} className="w-4 h-4 text-blue-500" />
+                    <label 
+                      key={idx} 
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                        selectedAnswer === option ? 'border-blue-500 bg-blue-500/10' : 'border-white/10 hover:bg-white/5'
+                      } ${feedback !== null ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <input 
+                        type="radio" 
+                        name="answer" 
+                        value={option} 
+                        checked={selectedAnswer === option} 
+                        onChange={() => setSelectedAnswer(option)} 
+                        disabled={feedback !== null} 
+                        className="w-4 h-4 text-blue-500" 
+                      />
                       <span className="text-sm text-gray-300">{String.fromCharCode(65 + idx)}. {option}</span>
                     </label>
                   ))}
                 </div>
               )}
+
+              {/* Code Writing Area */}
               {currentQuestion?.type === 'code_writing' && (
                 <div className="mb-6">
-                  <textarea value={codeAnswer} onChange={(e) => setCodeAnswer(e.target.value)} disabled={feedback !== null} rows={8} className="w-full font-mono text-sm p-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50" placeholder='def solution():\n    # Write your code here\n    pass' />
+                  <textarea 
+                    value={codeAnswer} 
+                    onChange={(e) => setCodeAnswer(e.target.value)} 
+                    disabled={feedback !== null} 
+                    rows={8} 
+                    className="w-full font-mono text-xs md:text-sm p-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 resize-y"
+                    placeholder='def solution():\n    # Write your code here\n    pass' 
+                  />
                 </div>
               )}
+
+              {/* Feedback */}
               {feedback && (
                 <div className={`p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                  <p className={`text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>{feedback.isCorrect ? 'Correct!' : 'Incorrect'}</p>
-                  <p className="text-sm text-gray-400">{feedback.explanation}</p>
+                  <p className={`text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                    {feedback.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                  </p>
+                  <p className="text-xs md:text-sm text-gray-400">{feedback.explanation}</p>
                 </div>
               )}
-              <button onClick={handleAnswerSubmit} disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50">
-                {submitting ? <Loader2 size={16} className="animate-spin inline mr-2" /> : null}
+
+              {/* Submit Button */}
+              <button 
+                onClick={handleAnswerSubmit} 
+                disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
+                className="w-full py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                {submitting && <Loader2 size={16} className="animate-spin" />}
                 {submitting ? 'Processing...' : feedback ? 'Next Question →' : 'Submit Answer'}
               </button>
             </div>

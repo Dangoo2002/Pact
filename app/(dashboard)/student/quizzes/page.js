@@ -11,6 +11,7 @@ import {
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+// Star Background
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -34,6 +35,7 @@ const StarBackground = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
+// Sidebar
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -58,7 +60,38 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// All 7 programming languages
+// Quiz Skeleton Loader
+const QuizzesSkeleton = () => (
+  <div className="min-h-screen bg-[#0A1628]">
+    <StarBackground />
+    <div className="md:ml-64">
+      <div className="pt-20 px-4 md:px-6 pb-6 animate-pulse">
+        <div className="mb-5">
+          <div className="h-7 w-48 bg-white/10 rounded mb-2" />
+          <div className="h-4 w-64 bg-white/5 rounded" />
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 h-10 bg-white/10 rounded" />
+            <div className="flex gap-3"><div className="h-10 w-32 bg-white/10 rounded" /><div className="h-10 w-32 bg-white/10 rounded" /></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="flex justify-between mb-3"><div className="h-10 w-10 bg-white/10 rounded" /><div className="h-5 w-16 bg-white/10 rounded" /></div>
+              <div className="h-5 w-32 bg-white/10 rounded mb-2" />
+              <div className="flex gap-2 mb-3"><div className="h-5 w-16 bg-white/10 rounded" /><div className="h-5 w-20 bg-white/10 rounded" /></div>
+              <div className="flex gap-3 mb-4"><div className="h-3 w-16 bg-white/5 rounded" /><div className="h-3 w-20 bg-white/5 rounded" /></div>
+              <div className="h-9 w-full bg-white/10 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const LANGUAGES = [
   { value: 'python', label: 'Python' },
   { value: 'javascript', label: 'JavaScript' },
@@ -71,7 +104,7 @@ const LANGUAGES = [
 const CONCEPTS = ['variables', 'data_types', 'operators', 'conditionals', 'loops', 'functions', 'arrays', 'strings', 'classes', 'inheritance'];
 
 export default function QuizzesPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quizzes, setQuizzes] = useState([]);
@@ -82,18 +115,20 @@ export default function QuizzesPage() {
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [startingQuizId, setStartingQuizId] = useState(null);
-  
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 9;
 
+  // Auth check
   useEffect(() => {
-    if (!session) {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
-    fetchQuizzes();
-  }, [session, router, languageFilter, conceptFilter]);
+    if (status === 'authenticated') {
+      fetchQuizzes();
+    }
+  }, [status, session, router, languageFilter, conceptFilter]);
 
   const fetchQuizzes = async () => {
     setLoading(true);
@@ -122,16 +157,11 @@ export default function QuizzesPage() {
         body: JSON.stringify({ studentId: session.user.id, concept, language })
       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       
       const data = await response.json();
       
-      if (!data.session_id) {
-        throw new Error('No session_id returned');
-      }
+      if (!data.session_id) throw new Error('No session_id returned');
       
       const quizData = {
         all_questions: data.all_questions,
@@ -139,17 +169,17 @@ export default function QuizzesPage() {
         total_questions: data.total_questions,
         score: 0,
         questions_answered: 0,
-        time_left: 300
+        time_left: 300,
+        concept: concept,
+        language: language,
+        answers: []
       };
       
-      const storageKey = `quiz_${data.session_id}`;
-      sessionStorage.setItem(storageKey, JSON.stringify(quizData));
-      localStorage.setItem(storageKey, JSON.stringify(quizData));
-      
+      sessionStorage.setItem(`quiz_${data.session_id}`, JSON.stringify(quizData));
       router.push(`/student/quiz/${data.session_id}`);
     } catch (error) {
       console.error('Failed to start quiz:', error);
-      alert('Failed to start quiz: ' + error.message);
+      alert('Failed to start quiz. Please try again.');
     } finally {
       setStartingQuizId(null);
     }
@@ -174,8 +204,8 @@ export default function QuizzesPage() {
     currentPage * itemsPerPage
   );
 
-  if (loading) {
-    return <div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>;
+  if (status === 'loading' || (loading && quizzes.length === 0)) {
+    return <QuizzesSkeleton />;
   }
 
   return (
@@ -184,7 +214,7 @@ export default function QuizzesPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Static Header - Always visible */}
+        {/* Header */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
@@ -215,10 +245,10 @@ export default function QuizzesPage() {
           {/* Welcome Section */}
           <div className="mb-5">
             <h2 className="text-xl md:text-2xl font-bold text-white">Practice Quizzes</h2>
-            <p className="text-sm text-gray-400 mt-1">Test your knowledge on programming concepts across 7 languages</p>
+            <p className="text-sm text-gray-400 mt-1">Test your knowledge across 7 programming languages</p>
           </div>
 
-          {/* Filter Toggle Button for Mobile */}
+          {/* Filter Toggle */}
           <div className="flex justify-between items-center mb-4 md:hidden">
             <button 
               onClick={() => setShowFilters(!showFilters)} 
@@ -229,7 +259,7 @@ export default function QuizzesPage() {
             </button>
           </div>
 
-          {/* Filters - Responsive */}
+          {/* Filters */}
           <div className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6 ${showFilters ? 'block' : 'hidden md:block'}`}>
             <div className="flex flex-col md:flex-row gap-3 md:gap-4">
               <div className="flex-1 relative">
@@ -263,7 +293,7 @@ export default function QuizzesPage() {
             </div>
           </div>
 
-          {/* Quizzes Grid - Responsive */}
+          {/* Quizzes Grid */}
           {paginatedQuizzes.length > 0 ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -279,7 +309,7 @@ export default function QuizzesPage() {
                       </div>
                       {quiz.progress > 0 && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
-                          {quiz.progress}% complete
+                          {quiz.progress}% done
                         </span>
                       )}
                     </div>
@@ -315,31 +345,70 @@ export default function QuizzesPage() {
                       {startingQuizId === quiz.id ? (
                         <Loader2 size={16} className="animate-spin inline mr-2" />
                       ) : null}
-                      {startingQuizId === quiz.id ? 'Starting...' : 'Start Quiz'}
+                      {startingQuizId === quiz.id ? 'Starting...' : 'Start Quiz →'}
                     </button>
                   </div>
                 ))}
               </div>
               
-              {/* Pagination - Responsive text links */}
+              {/* Pagination - Super Visible on Mobile & Desktop */}
               {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-3 md:gap-6 mt-6 md:mt-8 text-xs md:text-sm">
+                <div className="flex justify-center items-center gap-2 sm:gap-4 md:gap-6 mt-6 md:mt-8">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className={`text-gray-400 hover:text-white transition ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base ${
+                      currentPage === 1 
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+                    }`}
                   >
-                    Previous
+                    <ChevronLeft size={16} />
+                    <span className="hidden sm:inline">Previous</span>
+                    <span className="sm:hidden">Prev</span>
                   </button>
-                  <span className="text-gray-500">
-                    Page {currentPage} of {totalPages}
-                  </span>
+                  
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[32px] sm:min-w-[40px] px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm transition ${
+                            currentPage === pageNum
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className={`text-gray-400 hover:text-white transition ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm sm:text-base ${
+                      currentPage === totalPages 
+                        ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+                    }`}
                   >
-                    Next
+                    <span className="hidden sm:inline">Next</span>
+                    <span className="sm:hidden">Next</span>
+                    <ChevronRightIcon size={16} />
                   </button>
                 </div>
               )}
