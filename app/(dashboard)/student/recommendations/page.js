@@ -9,7 +9,7 @@ import {
   Menu, User, LogOut, Bell, Sparkles, Star, Filter,
   BookOpen, Target, LayoutDashboard, GraduationCap, Bot, Loader2, ChevronLeft,
   Brain, TrendingUp, Award, CheckCircle, AlertCircle, Zap, Flame, Medal,
-  LineChart, PieChart, Send, X, HelpCircle, Hexagon, MessageCircle
+  LineChart, PieChart, Send, X, HelpCircle, Hexagon, MessageCircle, ChevronRight
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
