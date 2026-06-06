@@ -4,8 +4,8 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Code, TrendingUp, Award, Clock, Target, BookOpen,
+import { 
+  Code, TrendingUp, Award, Clock, Target, BookOpen, 
   Menu, User, LogOut, Bell, Sparkles, ChevronRight,
   LayoutDashboard, BarChart3, CheckCircle, AlertCircle,
   TrendingDown, Calendar, Activity, Brain, Loader2,
@@ -15,14 +15,12 @@ import {
   Minimize
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
-import {
+import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart as ReLineChart, Line, Area, AreaChart, PieChart as RePieChart, Pie, Cell
 } from 'recharts';
 
-// ---------------------------------------------------------------------------
-// StarBackground
-// ---------------------------------------------------------------------------
+// ─── Star Background ──────────────────────────────────────────────────────────
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
@@ -30,10 +28,7 @@ const StarBackground = () => {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const setSize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
+    const setSize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     setSize();
     window.addEventListener('resize', setSize);
     const stars = [];
@@ -42,7 +37,7 @@ const StarBackground = () => {
         x: Math.random() * canvas.width,
         y: Math.random() * canvas.height,
         radius: Math.random() * 1.5,
-        alpha: Math.random() * 0.5 + 0.2,
+        alpha: Math.random() * 0.5 + 0.2
       });
     }
     const draw = () => {
@@ -58,14 +53,61 @@ const StarBackground = () => {
     draw();
     return () => window.removeEventListener('resize', setSize);
   }, []);
-  return (
-    <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-// ---------------------------------------------------------------------------
-// Sidebar
-// ---------------------------------------------------------------------------
+// ─── Skeleton Screen ──────────────────────────────────────────────────────────
+const DashboardSkeleton = () => (
+  <div className="pt-20 px-4 md:px-6 pb-6 animate-pulse">
+    {/* Welcome */}
+    <div className="mb-8">
+      <div className="h-9 w-72 bg-white/10 rounded-xl mb-3" />
+      <div className="h-4 w-96 bg-white/5 rounded-lg" />
+    </div>
+
+    {/* Stat Cards */}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 h-28">
+          <div className="h-8 w-8 bg-white/10 rounded-lg mb-4" />
+          <div className="h-7 w-16 bg-white/10 rounded mb-2" />
+          <div className="h-3 w-24 bg-white/5 rounded" />
+        </div>
+      ))}
+    </div>
+
+    {/* Charts */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      {[...Array(2)].map((_, i) => (
+        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-4 h-80">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-5 w-5 bg-white/10 rounded" />
+            <div className="h-5 w-40 bg-white/10 rounded" />
+          </div>
+          <div className="h-56 w-full bg-white/5 rounded-xl" />
+        </div>
+      ))}
+    </div>
+
+    {/* Hex Grid */}
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-8">
+      <div className="flex items-center gap-2 mb-6">
+        <div className="h-5 w-5 bg-white/10 rounded" />
+        <div className="h-5 w-48 bg-white/10 rounded" />
+      </div>
+      <div className="grid grid-cols-3 gap-4 md:gap-6">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-2">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-white/10 rounded-2xl" />
+            <div className="h-3 w-16 bg-white/5 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -87,10 +129,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   return (
     <>
       {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />
       )}
       <div
         className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${
@@ -108,7 +147,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="p-3 space-y-1">
-          {navItems.map(item => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             return (
               <Link
@@ -130,9 +169,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <User className="h-4 w-4 text-blue-400" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-white">
-                {session?.user?.name || 'Student'}
-              </p>
+              <p className="text-sm font-medium text-white">{session?.user?.name || 'Student'}</p>
               <p className="text-xs text-gray-500 capitalize">{role}</p>
             </div>
           </div>
@@ -149,90 +186,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// Skeleton primitives
-// ---------------------------------------------------------------------------
-const SkeletonBlock = ({ className = '' }) => (
-  <div className={`bg-white/10 rounded animate-pulse ${className}`} />
-);
-
-// Full-page skeleton shown while session resolves OR data is loading
-const DashboardSkeleton = () => (
-  <div className="min-h-screen bg-[#0A1628] text-white">
-    <StarBackground />
-    {/* Fake sidebar space */}
-    <div className="md:ml-64">
-      {/* Fake header */}
-      <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center justify-between px-4 py-3 md:px-6 h-[56px]">
-          <SkeletonBlock className="h-6 w-40" />
-          <div className="flex items-center gap-3">
-            <SkeletonBlock className="h-8 w-8 rounded-full" />
-            <SkeletonBlock className="h-4 w-24 hidden sm:block" />
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-20 px-4 md:px-6 pb-6">
-        {/* Welcome skeleton */}
-        <div className="mb-8 space-y-3">
-          <SkeletonBlock className="h-9 w-72" />
-          <SkeletonBlock className="h-4 w-96 bg-white/5" />
-        </div>
-
-        {/* Stat cards skeleton */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
-          {[...Array(4)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3"
-            >
-              <SkeletonBlock className="h-9 w-9 rounded-lg" />
-              <SkeletonBlock className="h-8 w-20" />
-              <SkeletonBlock className="h-3 w-28 bg-white/5" />
-            </div>
-          ))}
-        </div>
-
-        {/* Charts skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {[...Array(2)].map((_, i) => (
-            <div
-              key={i}
-              className="bg-white/5 border border-white/10 rounded-xl p-4"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <SkeletonBlock className="h-5 w-40" />
-                <SkeletonBlock className="h-3 w-24 bg-white/5" />
-              </div>
-              <SkeletonBlock className="h-[280px] w-full bg-white/5" />
-            </div>
-          ))}
-        </div>
-
-        {/* Hex grid skeleton */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <SkeletonBlock className="h-5 w-52" />
-            <SkeletonBlock className="h-3 w-36 bg-white/5" />
-          </div>
-          <div className="grid grid-cols-3 gap-4 md:gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-2">
-                <SkeletonBlock className="w-16 h-16 md:w-20 md:h-20 rounded-2xl" />
-                <SkeletonBlock className="h-3 w-16 bg-white/5" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// ---------------------------------------------------------------------------
-// StatCard
-// ---------------------------------------------------------------------------
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }) => (
   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition-all duration-300">
     <div className="flex items-center justify-between mb-3">
@@ -246,16 +200,15 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }) => (
   </div>
 );
 
-// ---------------------------------------------------------------------------
-// CustomHexagon & HexagonalGrid
-// ---------------------------------------------------------------------------
+// ─── Hexagonal Grid ───────────────────────────────────────────────────────────
 const CustomHexagon = ({ mastery, label, questions }) => {
-  const getColor = m => {
+  const getColor = (m) => {
     if (m >= 80) return '#10B981';
     if (m >= 60) return '#3B82F6';
     if (m >= 40) return '#F59E0B';
     return '#EF4444';
   };
+
   const pct = mastery != null ? Math.round(mastery) : 0;
 
   return (
@@ -263,10 +216,9 @@ const CustomHexagon = ({ mastery, label, questions }) => {
       <div
         className="w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-2xl transition-all duration-300 hover:scale-105 cursor-pointer"
         style={{
-          background:
-            mastery > 0
-              ? `linear-gradient(135deg, ${getColor(mastery)}20, ${getColor(mastery)}40)`
-              : '#1E293B',
+          background: mastery > 0
+            ? `linear-gradient(135deg, ${getColor(mastery)}20, ${getColor(mastery)}40)`
+            : '#1E293B',
           border: `2px solid ${mastery > 0 ? getColor(mastery) : '#475569'}`,
           boxShadow: mastery > 0 ? `0 0 20px ${getColor(mastery)}40` : 'none',
         }}
@@ -293,81 +245,15 @@ const HexagonalGrid = ({ concepts }) => {
 
   return (
     <div className="grid grid-cols-3 gap-4 md:gap-6">
-      {top.map((c, i) => (
-        <CustomHexagon key={i} mastery={c.mastery} label={c.concept} questions={c.totalQuestions} />
+      {top.map((c, idx) => (
+        <CustomHexagon key={idx} mastery={c.mastery} label={c.concept} questions={c.totalQuestions} />
       ))}
     </div>
   );
 };
 
-// ---------------------------------------------------------------------------
-// Charts
-// ---------------------------------------------------------------------------
-const PerformanceChart = ({ data }) => {
-  const chartData = data.map(item => ({
-    name: item.concept?.replace(/_/g, ' ').substring(0, 10),
-    mastery: Math.round(item.mastery),
-    questions: item.totalQuestions,
-  }));
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-        <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
-        <YAxis stroke="#9CA3AF" fontSize={12} />
-        <Tooltip
-          contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #ffffff20', borderRadius: '8px' }}
-          labelStyle={{ color: '#FFFFFF' }}
-        />
-        <Legend />
-        <Bar dataKey="mastery" fill="#3B82F6" name="Mastery (%)" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="questions" fill="#10B981" name="Questions" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
-};
-
-const ProgressAreaChart = ({ concepts }) => {
-  const data = [...concepts]
-    .sort((a, b) => a.mastery - b.mastery)
-    .map(item => ({
-      name: item.concept?.replace(/_/g, ' ').substring(0, 8),
-      mastery: Math.round(item.mastery),
-    }));
-  return (
-    <ResponsiveContainer width="100%" height={250}>
-      <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-        <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
-        <YAxis stroke="#9CA3AF" fontSize={12} />
-        <Tooltip
-          contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #ffffff20', borderRadius: '8px' }}
-          labelStyle={{ color: '#FFFFFF' }}
-        />
-        <Area
-          type="monotone"
-          dataKey="mastery"
-          stroke="#3B82F6"
-          fill="#3B82F640"
-          name="Mastery (%)"
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// AI Assistant
-// ---------------------------------------------------------------------------
-const AIAssistantSection = ({
-  messages,
-  input,
-  setInput,
-  sendMessage,
-  isLoading,
-  messagesEndRef,
-  handleKeyPress,
-}) => {
+// ─── AI Assistant ─────────────────────────────────────────────────────────────
+const AIAssistantSection = ({ messages, input, setInput, sendMessage, isLoading, messagesEndRef, handleKeyPress }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
   if (isMinimized) {
@@ -405,7 +291,7 @@ const AIAssistantSection = ({
             <p className="text-sm">Ask me about your performance, gaps, or get learning tips!</p>
           </div>
         ) : (
-          messages.map(msg => (
+          messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[85%] p-2 rounded-lg text-sm ${
@@ -431,7 +317,7 @@ const AIAssistantSection = ({
       <div className="p-3 border-t border-white/10 flex gap-2">
         <textarea
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Ask me anything..."
           className="flex-1 bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 resize-none"
@@ -449,9 +335,57 @@ const AIAssistantSection = ({
   );
 };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ─── Charts ───────────────────────────────────────────────────────────────────
+const PerformanceChart = ({ data }) => {
+  const chartData = data.map(item => ({
+    name: item.concept?.replace(/_/g, ' ').substring(0, 10),
+    mastery: Math.round(item.mastery),
+    questions: item.totalQuestions,
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+        <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
+        <YAxis stroke="#9CA3AF" fontSize={12} />
+        <Tooltip
+          contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #ffffff20', borderRadius: '8px' }}
+          labelStyle={{ color: '#FFFFFF' }}
+        />
+        <Legend />
+        <Bar dataKey="mastery" fill="#3B82F6" name="Mastery (%)" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="questions" fill="#10B981" name="Questions" radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const ProgressAreaChart = ({ concepts }) => {
+  const data = [...concepts]
+    .sort((a, b) => a.mastery - b.mastery)
+    .map(item => ({
+      name: item.concept?.replace(/_/g, ' ').substring(0, 8),
+      mastery: Math.round(item.mastery),
+    }));
+
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <AreaChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+        <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
+        <YAxis stroke="#9CA3AF" fontSize={12} />
+        <Tooltip
+          contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #ffffff20', borderRadius: '8px' }}
+          labelStyle={{ color: '#FFFFFF' }}
+        />
+        <Area type="monotone" dataKey="mastery" stroke="#3B82F6" fill="#3B82F640" name="Mastery (%)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 const getGreeting = () => {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -459,117 +393,100 @@ const getGreeting = () => {
   return 'Good evening';
 };
 
-const EMPTY_DASHBOARD = {
-  performance: {
-    totalQuizzes: 0,
-    completedQuizzes: 0,
-    totalQuestions: 0,
-    correctAnswers: 0,
-    accuracy: 0,
-    overallMastery: 0,
-    currentStreak: 0,
-    longestStreak: 0,
-  },
-  conceptMastery: [],
-  primaryGaps: [],
-  secondaryGaps: [],
-  totalGaps: 0,
-};
-
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
+// ─── Default export ───────────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // TRUE by default → skeleton shows until data arrives
-  const [loading, setLoading] = useState(true);
+  // dataReady gates the real content; keeps skeleton visible until fetch completes
+  const [dataReady, setDataReady] = useState(false);
 
-  const [dashboardData, setDashboardData] = useState(EMPTY_DASHBOARD);
+  const [dashboardData, setDashboardData] = useState({
+    performance: {
+      totalQuizzes: 0,
+      completedQuizzes: 0,
+      totalQuestions: 0,
+      correctAnswers: 0,
+      accuracy: 0,
+      overallMastery: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+    },
+    conceptMastery: [],
+    primaryGaps: [],
+    secondaryGaps: [],
+    totalGaps: 0,
+  });
 
-  // AI chat
+  // AI Chat State
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // ------------------------------------------------------------------
-  // Auth guard + data fetch
-  // ------------------------------------------------------------------
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  // Wait until NextAuth resolves; while resolving show a spinner.
+  // If unauthenticated, redirect — but NEVER render the dashboard content.
   useEffect(() => {
-    // Still resolving — do nothing, keep skeleton visible
-    if (status === 'loading') return;
-
-    // Not logged in — redirect immediately (no flash because skeleton is shown)
+    if (status === 'loading') return;           // still resolving — wait
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
-
-    // Authenticated — fetch data
+    // Authenticated and session ready
     if (status === 'authenticated' && session?.user?.id) {
       fetchDashboardData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, status]);
+  }, [status, session?.user?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ------------------------------------------------------------------
-  // Data fetch
-  // ------------------------------------------------------------------
+  // ── Data Fetching ───────────────────────────────────────────────────────────
   const fetchDashboardData = async () => {
-    setLoading(true);
     try {
       const studentId = session.user.id;
 
-      const [gapsRes, conceptRes, perfRes, sessionsRes] = await Promise.allSettled([
-        fetch(`/api/student/gaps?studentId=${studentId}`),
-        fetch(`/api/student/concept-performance?studentId=${studentId}`),
-        fetch(`/api/student/student-performance?studentId=${studentId}`),
-        fetch(`/api/student/sessions?studentId=${studentId}`),
-      ]);
-
-      const gapsData =
-        gapsRes.status === 'fulfilled' && gapsRes.value.ok
-          ? await gapsRes.value.json()
-          : { primary_gaps: [], secondary_gaps: [] };
+      const gapsRes = await fetch(`/api/student/gaps?studentId=${studentId}`);
+      const gapsData = await gapsRes.json();
 
       let conceptData = { concepts: [] };
-      if (conceptRes.status === 'fulfilled' && conceptRes.value.ok) {
-        try { conceptData = await conceptRes.value.json(); } catch (_) {}
-      }
+      try {
+        const conceptRes = await fetch(`/api/student/concept-performance?studentId=${studentId}`);
+        conceptData = await conceptRes.json();
+      } catch { /* endpoint not ready */ }
 
       let perfData = {};
-      if (perfRes.status === 'fulfilled' && perfRes.value.ok) {
-        try { perfData = await perfRes.value.json(); } catch (_) {}
-      }
+      try {
+        const perfRes = await fetch(`/api/student/student-performance?studentId=${studentId}`);
+        perfData = await perfRes.json();
+      } catch { /* endpoint not ready */ }
 
       let sessionsData = { sessions: [] };
-      if (sessionsRes.status === 'fulfilled' && sessionsRes.value.ok) {
-        try { sessionsData = await sessionsRes.value.json(); } catch (_) {}
-      }
+      try {
+        const sessionsRes = await fetch(`/api/student/sessions?studentId=${studentId}`);
+        sessionsData = await sessionsRes.json();
+      } catch { /* endpoint not ready */ }
 
       const completedQuizzesFromSessions =
-        sessionsData.sessions?.filter(s => s.status === 'completed').length || 0;
+        sessionsData.sessions?.filter((s) => s.status === 'completed').length || 0;
 
-      // Build concept mastery list
+      // Build concept mastery array
       let conceptMastery = [];
       if (conceptData.concepts?.length > 0) {
-        conceptMastery = conceptData.concepts.map(c => ({
+        conceptMastery = conceptData.concepts.map((c) => ({
           concept: c.concept,
           mastery: parseFloat(c.mastery_score) || 0,
           totalQuestions: c.total_questions || 0,
           correctAnswers: c.correct_answers || 0,
         }));
       } else if (gapsData.primary_gaps?.length > 0) {
-        const allGaps = [...(gapsData.primary_gaps || []), ...(gapsData.secondary_gaps || [])];
+        const allGaps = [...gapsData.primary_gaps, ...(gapsData.secondary_gaps || [])];
         const map = new Map();
-        allGaps.forEach(gap => {
+        allGaps.forEach((gap) => {
           if (!map.has(gap.concept)) {
             map.set(gap.concept, { concept: gap.concept, mastery: gap.mastery, totalQuestions: 0 });
           }
@@ -577,8 +494,7 @@ export default function StudentDashboard() {
         conceptMastery = Array.from(map.values());
       }
 
-      const totalGaps =
-        (gapsData.primary_gaps?.length || 0) + (gapsData.secondary_gaps?.length || 0);
+      const totalGaps = (gapsData.primary_gaps?.length || 0) + (gapsData.secondary_gaps?.length || 0);
 
       const overallMastery =
         conceptMastery.length > 0
@@ -591,13 +507,12 @@ export default function StudentDashboard() {
           ? Math.round((perfData.total_correct_answers / perfData.total_questions_answered) * 100)
           : 0);
 
-      const finalCompleted =
-        completedQuizzesFromSessions || perfData.completed_quizzes || 0;
+      const finalCompletedQuizzes = completedQuizzesFromSessions || perfData.completed_quizzes || 0;
 
-      const newDash = {
+      setDashboardData({
         performance: {
           totalQuizzes: perfData.total_quizzes || sessionsData.sessions?.length || 0,
-          completedQuizzes: finalCompleted,
+          completedQuizzes: finalCompletedQuizzes,
           totalQuestions: perfData.total_questions_answered || 0,
           correctAnswers: perfData.total_correct_answers || 0,
           accuracy,
@@ -609,53 +524,50 @@ export default function StudentDashboard() {
         primaryGaps: gapsData.primary_gaps || [],
         secondaryGaps: gapsData.secondary_gaps || [],
         totalGaps,
-      };
+      });
 
-      setDashboardData(newDash);
-
-      // Personalised AI greeting (only once)
+      // AI greeting — only set once
       if (messages.length === 0) {
         const greeting = getGreeting();
-        const name = session?.user?.name?.split(' ')[0] || 'Student';
+        const studentName = session?.user?.name?.split(' ')[0] || 'Student';
         const gapCount = gapsData.primary_gaps?.length || 0;
 
-        let msg = `${greeting}, ${name}! I'm your AI learning assistant. `;
+        let personalizedMessage = `${greeting}, ${studentName}! I'm your AI learning assistant. `;
         if (overallMastery > 0) {
-          msg += `\n\n**Your Learning Summary:**`;
-          msg += `\n• Overall Mastery: ${overallMastery}%`;
-          msg += `\n• Quizzes Completed: ${finalCompleted}`;
-          msg += `\n• Accuracy: ${accuracy}%`;
-          msg += `\n• Identified Gaps: ${totalGaps} areas to improve`;
+          personalizedMessage += `\n\n**Your Learning Summary:**`;
+          personalizedMessage += `\n• Overall Mastery: ${overallMastery}%`;
+          personalizedMessage += `\n• Quizzes Completed: ${finalCompletedQuizzes}`;
+          personalizedMessage += `\n• Accuracy: ${accuracy}%`;
+          personalizedMessage += `\n• Identified Gaps: ${totalGaps} areas to improve`;
           if (gapCount > 0) {
-            msg += `\n\nFocus on: ${gapsData.primary_gaps
+            personalizedMessage += `\n\nFocus on: ${gapsData.primary_gaps
               .slice(0, 2)
-              .map(g => g.concept?.replace(/_/g, ' '))
+              .map((g) => g.concept?.replace(/_/g, ' '))
               .join(', ')}`;
           }
-          msg += `\n\nHow can I help you today?`;
+          personalizedMessage += `\n\nHow can I help you today?`;
         } else {
-          msg += `Welcome to PACT! Start by taking a quiz to see your personalised learning analytics.`;
+          personalizedMessage += `Welcome to PACT! Start by taking a quiz to unlock your personalized analytics.`;
         }
 
         setMessages([
           {
             id: 1,
             role: 'assistant',
-            content: msg,
+            content: personalizedMessage,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
       }
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
     } finally {
-      setLoading(false);
+      // Mark data as ready regardless of success/error so we don't show skeleton forever
+      setDataReady(true);
     }
   };
 
-  // ------------------------------------------------------------------
-  // AI chat
-  // ------------------------------------------------------------------
+  // ── AI Chat ─────────────────────────────────────────────────────────────────
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -665,12 +577,12 @@ export default function StudentDashboard() {
       content: input,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/ai/chat', {
+      const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -685,26 +597,23 @@ export default function StudentDashboard() {
           },
         }),
       });
-      const data = await res.json();
-      setMessages(prev => [
+      const data = await response.json();
+      setMessages((prev) => [
         ...prev,
         {
           id: prev.length + 1,
           role: 'assistant',
-          content:
-            data.reply ||
-            "I'm here to help with your learning journey. What would you like to know?",
+          content: data.reply || "I'm here to help with your learning journey. What would you like to know?",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
-    } catch (_) {
-      setMessages(prev => [
+    } catch {
+      setMessages((prev) => [
         ...prev,
         {
           id: prev.length + 1,
           role: 'assistant',
-          content:
-            "I'm here to help! Ask me about your performance, specific concepts, or for study recommendations.",
+          content: "I'm here to help! Ask me about your performance, concepts, or for study recommendations.",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -713,42 +622,41 @@ export default function StudentDashboard() {
     }
   };
 
-  const handleKeyPress = e => {
+  const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
 
-  // ------------------------------------------------------------------
-  // Render skeleton while session is resolving OR data is loading
-  // ------------------------------------------------------------------
-  if (status === 'loading' || loading) {
-    return <DashboardSkeleton />;
+  // ── Auth / loading gates ────────────────────────────────────────────────────
+  // Block rendering entirely while NextAuth is resolving OR while we know the
+  // user is not authenticated (avoids the flash of dashboard content).
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+      </div>
+    );
   }
 
-  // After this point we are definitely authenticated and data is ready
+  // ── Derived values (safe — status is 'authenticated' here) ──────────────────
   const greeting = getGreeting();
   const studentName = session?.user?.name?.split(' ')[0] || 'Student';
   const { performance, conceptMastery, primaryGaps, totalGaps } = dashboardData;
   const hasData = conceptMastery.length > 0;
 
-  // ------------------------------------------------------------------
-  // Main render
-  // ------------------------------------------------------------------
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0A1628] text-white">
       <StarBackground />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:ml-64">
-        {/* Fixed Header */}
+        {/* Fixed Header — always visible, even during skeleton */}
         <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-white/10"
-            >
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
               <Menu size={20} />
             </button>
             <div className="hidden md:flex items-center gap-2">
@@ -771,146 +679,142 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="pt-20 px-4 md:px-6 pb-6">
+        {/* Skeleton OR real content */}
+        {!dataReady ? (
+          <DashboardSkeleton />
+        ) : (
+          <div className="pt-20 px-4 md:px-6 pb-6">
 
-          {/* Welcome Section */}
-          <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              {greeting}, {studentName}!
-            </h2>
-            <p className="text-sm md:text-base text-gray-400 mt-2">
-              {hasData
-                ? `Your overall mastery is ${performance.overallMastery}% across ${conceptMastery.length} concepts. Keep up the great work!`
-                : 'Complete your first quiz to unlock personalised learning analytics and AI-powered insights.'}
-            </p>
-          </div>
+            {/* Welcome */}
+            <div className="mb-8">
+              <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                {greeting}, {studentName}!
+              </h2>
+              <p className="text-sm md:text-base text-gray-400 mt-2">
+                {hasData
+                  ? `Your overall mastery is ${performance.overallMastery}% across ${conceptMastery.length} concepts. Keep up the great work!`
+                  : 'Complete your first quiz to unlock personalized learning analytics and AI-powered insights.'}
+              </p>
+            </div>
 
-          {/* Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
-            <StatCard
-              title="Overall Mastery"
-              value={`${performance.overallMastery}%`}
-              icon={Brain}
-              color="blue"
-            />
-            <StatCard
-              title="Identified Gaps"
-              value={totalGaps}
-              subtitle={`${primaryGaps.length} high priority`}
-              icon={Target}
-              color="red"
-            />
-            <StatCard
-              title="Quizzes Completed"
-              value={performance.completedQuizzes}
-              subtitle={`${performance.totalQuizzes} total attempts`}
-              icon={BookOpen}
-              color="green"
-            />
-            <StatCard
-              title="Longest Streak"
-              value={performance.longestStreak}
-              subtitle="Days in a row"
-              icon={Flame}
-              color="orange"
-            />
-          </div>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+              <StatCard title="Overall Mastery" value={`${performance.overallMastery}%`} icon={Brain} color="blue" />
+              <StatCard
+                title="Identified Gaps"
+                value={totalGaps}
+                subtitle={`${primaryGaps.length} high priority`}
+                icon={Target}
+                color="red"
+              />
+              <StatCard
+                title="Quizzes Completed"
+                value={performance.completedQuizzes}
+                subtitle={`${performance.totalQuizzes} total attempts`}
+                icon={BookOpen}
+                color="green"
+              />
+              <StatCard
+                title="Longest Streak"
+                value={performance.longestStreak}
+                subtitle="Days in a row"
+                icon={Flame}
+                color="orange"
+              />
+            </div>
 
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Bar Chart */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Bar Chart */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={18} className="text-blue-400" />
+                    <h3 className="font-semibold text-white">Concept Performance</h3>
+                  </div>
+                  <span className="text-xs text-gray-500">Mastery by Concept</span>
+                </div>
+                {hasData ? (
+                  <PerformanceChart data={conceptMastery} />
+                ) : (
+                  <div className="h-[300px] flex items-center justify-center">
+                    <div className="text-center">
+                      <BarChart3 size={48} className="mx-auto text-gray-600 mb-3" />
+                      <p className="text-sm text-gray-500">No data available yet</p>
+                      <p className="text-xs text-gray-600 mt-1">Complete quizzes to see your performance</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Area Chart */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <LineChart size={18} className="text-green-400" />
+                    <h3 className="font-semibold text-white">Mastery Distribution</h3>
+                  </div>
+                  <span className="text-xs text-gray-500">Sorted by mastery level</span>
+                </div>
+                {hasData ? (
+                  <ProgressAreaChart concepts={conceptMastery} />
+                ) : (
+                  <div className="h-[250px] flex items-center justify-center">
+                    <div className="text-center">
+                      <LineChart size={48} className="mx-auto text-gray-600 mb-3" />
+                      <p className="text-sm text-gray-500">No data available yet</p>
+                      <p className="text-xs text-gray-600 mt-1">Start learning to see your progress</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Hexagonal Grid */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-8">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <BarChart3 size={18} className="text-blue-400" />
-                  <h3 className="font-semibold text-white">Concept Performance</h3>
+                  <Hexagon size={18} className="text-purple-400" />
+                  <h3 className="font-semibold text-white">Concept Mastery Hexagon</h3>
                 </div>
-                <span className="text-xs text-gray-500">Mastery by Concept</span>
+                <span className="text-xs text-gray-500">Top 6 concepts by mastery</span>
               </div>
               {hasData ? (
-                <PerformanceChart data={conceptMastery} />
+                <HexagonalGrid concepts={conceptMastery} />
               ) : (
-                <div className="h-[300px] flex items-center justify-center">
-                  <div className="text-center">
-                    <BarChart3 size={48} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-500">No data available yet</p>
-                    <p className="text-xs text-gray-600 mt-1">Complete quizzes to see your performance</p>
-                  </div>
+                <div className="py-12 text-center">
+                  <Hexagon size={48} className="mx-auto text-gray-600 mb-3" />
+                  <p className="text-sm text-gray-500">No concept data available</p>
+                  <p className="text-xs text-gray-600 mt-1">Take quizzes to build your mastery profile</p>
                 </div>
               )}
             </div>
 
-            {/* Area Chart */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <LineChart size={18} className="text-green-400" />
-                  <h3 className="font-semibold text-white">Mastery Distribution</h3>
-                </div>
-                <span className="text-xs text-gray-500">Sorted by mastery level</span>
-              </div>
-              {hasData ? (
-                <ProgressAreaChart concepts={conceptMastery} />
-              ) : (
-                <div className="h-[250px] flex items-center justify-center">
-                  <div className="text-center">
-                    <LineChart size={48} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-sm text-gray-500">No data available yet</p>
-                    <p className="text-xs text-gray-600 mt-1">Start learning to see your progress</p>
+            {/* Knowledge Gaps */}
+            {primaryGaps.length > 0 && (
+              <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={20} className="text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-400 mb-2">Priority Knowledge Gaps</p>
+                    <div className="flex flex-wrap gap-2">
+                      {primaryGaps.slice(0, 4).map((gap, idx) => (
+                        <span key={idx} className="px-2 py-1 rounded-lg bg-red-500/20 text-red-300 text-xs">
+                          {gap.concept?.replace(/_/g, ' ')}
+                        </span>
+                      ))}
+                    </div>
+                    <Link href="/student/gaps">
+                      <button className="mt-3 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
+                        View all gaps <ChevronRight size={12} />
+                      </button>
+                    </Link>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Hex Grid */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Hexagon size={18} className="text-purple-400" />
-                <h3 className="font-semibold text-white">Concept Mastery Map</h3>
-              </div>
-              <span className="text-xs text-gray-500">Top 6 concepts by mastery</span>
-            </div>
-            {hasData ? (
-              <HexagonalGrid concepts={conceptMastery} />
-            ) : (
-              <div className="py-12 text-center">
-                <Hexagon size={48} className="mx-auto text-gray-600 mb-3" />
-                <p className="text-sm text-gray-500">No concept data available</p>
-                <p className="text-xs text-gray-600 mt-1">Take quizzes to build your mastery profile</p>
               </div>
             )}
           </div>
-
-          {/* Knowledge Gaps */}
-          {primaryGaps && primaryGaps.length > 0 && (
-            <div className="bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={20} className="text-red-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-400 mb-2">Priority Knowledge Gaps</p>
-                  <div className="flex flex-wrap gap-2">
-                    {primaryGaps.slice(0, 4).map((gap, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-1 rounded-lg bg-red-500/20 text-red-300 text-xs"
-                      >
-                        {gap.concept?.replace(/_/g, ' ')}
-                      </span>
-                    ))}
-                  </div>
-                  <Link href="/student/gaps">
-                    <button className="mt-3 text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1">
-                      View all gaps <ChevronRight size={12} />
-                    </button>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* AI Assistant */}
