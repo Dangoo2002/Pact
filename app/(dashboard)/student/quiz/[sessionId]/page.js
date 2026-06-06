@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, 
   Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
-  ChevronRight, Brain
+  ChevronRight
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -386,8 +386,8 @@ export default function QuizPage() {
                     disabled={isSaving}
                     className="w-full py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
                   >
-                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Brain size={16} />}
-                    {isSaving ? 'Analyzing with AI...' : 'Save & Analyze with AI'}
+                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                    {isSaving ? 'Analyzing with AI...' : 'Get AI Recommendations'}
                   </button>
                 </div>
               ) : (
@@ -524,42 +524,16 @@ export default function QuizPage() {
                 </div>
               )}
 
-              {/* Submit Button - Changed to "Submit & Analyze with AI" after feedback */}
-              {!feedback ? (
-                <button 
-                  onClick={handleAnswerSubmit} 
-                  disabled={(!selectedAnswer && !codeAnswer) || submitting} 
-                  className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
-                >
-                  {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
-                  {submitting ? 'Submitting...' : 'Submit Answer'}
-                  {!submitting && <ChevronRight size={14} className="md:text-[16px]" />}
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <button 
-                    onClick={handleAnswerSubmit} 
-                    className="w-full py-2 md:py-2.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
-                  >
-                    Next Question
-                    <ChevronRight size={14} className="md:text-[16px]" />
-                  </button>
-                  
-                  {questionsAnswered === totalQuestions - 1 && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
-                      <p className="text-xs text-gray-400 text-center mb-2">After this question, you can analyze your performance</p>
-                      <button 
-                        onClick={handleSaveAndAnalyze}
-                        disabled={isSaving}
-                        className="w-full py-2 md:py-2.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
-                        {isSaving ? 'Analyzing...' : 'Save & Analyze with AI'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Submit Button */}
+              <button 
+                onClick={handleAnswerSubmit} 
+                disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
+                className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
+                {submitting ? 'Processing...' : feedback ? 'Next Question' : 'Submit Answer'}
+                {!submitting && feedback && <ChevronRight size={14} className="md:text-[16px]" />}
+              </button>
             </div>
 
             {/* Progress Bar - Shows REAL-TIME progress */}
