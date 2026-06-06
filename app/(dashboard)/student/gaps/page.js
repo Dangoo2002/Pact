@@ -11,7 +11,6 @@ import {
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-// ─── Star Background ──────────────────────────────────────────────────────────
 const StarBackground = () => {
   const canvasRef = useRef(null);
   useEffect(() => {
