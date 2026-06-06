@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Code, Mail, Lock, ArrowRight, Briefcase, GraduationCap, Shield, Eye, EyeOff, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
@@ -87,26 +87,35 @@ const StarBackground = () => {
 export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState('student');
+  const [redirecting, setRedirecting] = useState(false);
 
-  // Redirect if already logged in
+  // Redirect if already logged in - with flag to prevent loop
   useEffect(() => {
-    if (status === 'authenticated' && session) {
+    if (status === 'authenticated' && session && !redirecting) {
+      setRedirecting(true);
       const userRole = session.user?.role;
-      if (userRole === 'student') {
-        router.push('/student');
+      
+      // If there's a returnUrl, use it first
+      if (returnUrl && returnUrl !== '/login') {
+        router.replace(returnUrl);
+      } else if (userRole === 'student') {
+        router.replace('/student');
       } else if (userRole === 'instructor') {
-        router.push('/instructor');
+        router.replace('/instructor');
       } else if (userRole === 'admin') {
-        router.push('/admin');
+        router.replace('/admin');
       }
     }
-  }, [session, status, router]);
+  }, [session, status, router, returnUrl, redirecting]);
 
   const showToast = (message, type) => {
     setToast({ message, type });
@@ -136,12 +145,14 @@ export default function LoginPage() {
       showToast(`Welcome back! Redirecting to ${role} dashboard...`, 'success');
       
       setTimeout(() => {
-        if (role === 'student') {
-          window.location.href = '/student';
+        if (returnUrl && returnUrl !== '/login') {
+          router.replace(returnUrl);
+        } else if (role === 'student') {
+          router.replace('/student');
         } else if (role === 'instructor') {
-          window.location.href = '/instructor';
+          router.replace('/instructor');
         } else if (role === 'admin') {
-          window.location.href = '/admin';
+          router.replace('/admin');
         }
       }, 500);
     }
@@ -154,6 +165,18 @@ export default function LoginPage() {
   };
   const currentRole = roleLabels[role];
   const RoleIcon = currentRole.icon;
+
+  // Show loading while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+          <p className="text-sm text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
