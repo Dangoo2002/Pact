@@ -380,7 +380,7 @@ export default function QuizPage() {
 
               {!savedToDatabase ? (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
-                  <p className="text-sm text-blue-400 mb-3">Get AI-Powered Insights</p>
+                  <p className="text-sm text-blue-400 mb-3">Save & Analyze</p>
                   <button
                     onClick={handleSaveAndAnalyze}
                     disabled={isSaving}
