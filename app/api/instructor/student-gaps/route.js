@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 
 export async function GET(request) {
+  let studentId = null; // Declare studentId outside try block so it's accessible in catch
+  
   try {
     const session = await getServerSession(authOptions);
     
@@ -13,7 +15,7 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const studentId = searchParams.get('studentId');
+    studentId = searchParams.get('studentId');
 
     if (!studentId) {
       return NextResponse.json({ error: 'Student ID required' }, { status: 400 });
@@ -75,7 +77,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('Student gaps API error:', error);
     return NextResponse.json({ 
-      id: studentId, 
+      id: studentId || 'unknown', 
       name: 'Student', 
       mastery: 0, 
       gaps: [], 
