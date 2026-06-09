@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Code, AlertCircle, TrendingDown, ChevronRight, Sparkles,
   Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2, Bot,
-  Copy, Check, CheckCircle, ChevronLeft
+  Copy, Check, CheckCircle, ChevronLeft, Trophy, Star, TrendingUp
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -121,7 +121,7 @@ const CodeBlock = ({ code, language }) => {
 };
 
 // ─── Pagination Component ────────────────────────────────────────────────────
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+const Pagination = ({ currentPage, totalPages, onPageChange, color = 'blue' }) => {
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -148,7 +148,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition text-sm ${
           currentPage === 1 
             ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-            : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+            : `bg-${color}-500/20 border border-${color}-500/30 text-${color}-400 hover:bg-${color}-500/30`
         }`}
       >
         <ChevronLeft size={14} />
@@ -162,7 +162,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             onClick={() => onPageChange(pageNum)}
             className={`min-w-[32px] px-2 py-1 rounded-lg text-xs transition ${
               currentPage === pageNum
-                ? 'bg-blue-500 text-white'
+                ? `bg-${color}-500 text-white`
                 : 'text-gray-400 hover:bg-white/10 hover:text-white'
             }`}
           >
@@ -177,7 +177,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition text-sm ${
           currentPage === totalPages 
             ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-            : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+            : `bg-${color}-500/20 border border-${color}-500/30 text-${color}-400 hover:bg-${color}-500/30`
         }`}
       >
         <span>Next</span>
@@ -236,18 +236,18 @@ export default function StudentGapsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [primaryGaps, setPrimaryGaps] = useState([]);
-  const [secondaryGaps, setSecondaryGaps] = useState([]);
-  const [understoodConcepts, setUnderstoodConcepts] = useState([]);
+  const [needsImprovement, setNeedsImprovement] = useState([]);      // 0-59%
+  const [developing, setDeveloping] = useState([]);                  // 60-79%
+  const [mastered, setMastered] = useState([]);                      // 80-100%
   const [overallMastery, setOverallMastery] = useState(0);
   const [loading, setLoading] = useState(true);
   const [aiExplanation, setAiExplanation] = useState({});
   const [explaining, setExplaining] = useState({});
   
   // Pagination states
-  const [primaryCurrentPage, setPrimaryCurrentPage] = useState(1);
-  const [secondaryCurrentPage, setSecondaryCurrentPage] = useState(1);
-  const [understoodCurrentPage, setUnderstoodCurrentPage] = useState(1);
+  const [needsImprovementPage, setNeedsImprovementPage] = useState(1);
+  const [developingPage, setDevelopingPage] = useState(1);
+  const [masteredPage, setMasteredPage] = useState(1);
   const itemsPerPage = 5;
 
   // Auth Guard
@@ -268,20 +268,27 @@ export default function StudentGapsPage() {
       const response = await fetch(`/api/student/gaps?studentId=${session.user.id}`);
       const data = await response.json();
       
-      setPrimaryGaps((data.primary_gaps || []).slice(0, 10));
-      setSecondaryGaps((data.secondary_gaps || []).slice(0, 10));
+      // Categorize based on mastery
+      const allGaps = [...(data.primary_gaps || []), ...(data.secondary_gaps || [])];
+      const understood = data.understood_concepts || [];
       
-      // Extract understood concepts (mastery >= 80%)
-      const allConcepts = [...(data.primary_gaps || []), ...(data.secondary_gaps || [])];
-      const understood = allConcepts.filter(gap => gap.mastery >= 80);
-      setUnderstoodConcepts(understood);
+      // Combine all concepts
+      const allConcepts = [...allGaps, ...understood];
       
+      // Separate by mastery level
+      const needsImprovementList = allConcepts.filter(c => c.mastery < 60);
+      const developingList = allConcepts.filter(c => c.mastery >= 60 && c.mastery < 80);
+      const masteredList = allConcepts.filter(c => c.mastery >= 80);
+      
+      setNeedsImprovement(needsImprovementList);
+      setDeveloping(developingList);
+      setMastered(masteredList);
       setOverallMastery(data.overall_mastery || 0);
       
       // Reset pagination
-      setPrimaryCurrentPage(1);
-      setSecondaryCurrentPage(1);
-      setUnderstoodCurrentPage(1);
+      setNeedsImprovementPage(1);
+      setDevelopingPage(1);
+      setMasteredPage(1);
     } catch (error) {
       console.error('Failed to fetch gaps:', error);
     } finally {
@@ -320,7 +327,7 @@ export default function StudentGapsPage() {
   };
 
   const getMasteryText = (mastery) => {
-    if (mastery >= 80) return 'Proficient';
+    if (mastery >= 80) return 'Mastered';
     if (mastery >= 60) return 'Developing';
     return 'Needs Improvement';
   };
@@ -330,13 +337,13 @@ export default function StudentGapsPage() {
     return items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
   };
 
-  const totalPrimaryPages = Math.ceil(primaryGaps.length / itemsPerPage);
-  const totalSecondaryPages = Math.ceil(secondaryGaps.length / itemsPerPage);
-  const totalUnderstoodPages = Math.ceil(understoodConcepts.length / itemsPerPage);
+  const totalNeedsImprovementPages = Math.ceil(needsImprovement.length / itemsPerPage);
+  const totalDevelopingPages = Math.ceil(developing.length / itemsPerPage);
+  const totalMasteredPages = Math.ceil(mastered.length / itemsPerPage);
 
-  const paginatedPrimaryGaps = paginate(primaryGaps, primaryCurrentPage);
-  const paginatedSecondaryGaps = paginate(secondaryGaps, secondaryCurrentPage);
-  const paginatedUnderstoodConcepts = paginate(understoodConcepts, understoodCurrentPage);
+  const paginatedNeedsImprovement = paginate(needsImprovement, needsImprovementPage);
+  const paginatedDeveloping = paginate(developing, developingPage);
+  const paginatedMastered = paginate(mastered, masteredPage);
 
   if (status === 'loading') {
     return (<div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>);
@@ -367,115 +374,168 @@ export default function StudentGapsPage() {
         {showSkeleton ? (<GapsSkeleton />) : (
           <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-4 gap-3 mb-6">
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
                 <div className="p-1.5 rounded-lg bg-red-500/20 inline-block mb-1"><AlertCircle size={14} className="text-red-400" /></div>
-                <p className="text-xl font-bold text-white">{primaryGaps.length}</p><p className="text-xs text-gray-500">High Priority</p>
+                <p className="text-xl font-bold text-white">{needsImprovement.length}</p><p className="text-xs text-gray-500">Needs Improvement</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">&lt; 60%</p>
               </div>
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-                <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1"><TrendingDown size={14} className="text-yellow-400" /></div>
-                <p className="text-xl font-bold text-white">{secondaryGaps.length}</p><p className="text-xs text-gray-500">To Improve</p>
+                <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1"><TrendingUp size={14} className="text-yellow-400" /></div>
+                <p className="text-xl font-bold text-white">{developing.length}</p><p className="text-xs text-gray-500">Developing</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">60-79%</p>
+              </div>
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
+                <div className="p-1.5 rounded-lg bg-green-500/20 inline-block mb-1"><Trophy size={14} className="text-green-400" /></div>
+                <p className="text-xl font-bold text-white">{mastered.length}</p><p className="text-xs text-gray-500">Mastered</p>
+                <p className="text-[10px] text-gray-600 mt-0.5">80%+</p>
               </div>
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
                 <div className="p-1.5 rounded-lg bg-blue-500/20 inline-block mb-1"><Brain size={14} className="text-blue-400" /></div>
-                <p className="text-xl font-bold text-white">{overallMastery}%</p><p className="text-xs text-gray-500">Mastery</p>
+                <p className="text-xl font-bold text-white">{overallMastery}%</p><p className="text-xs text-gray-500">Overall Mastery</p>
               </div>
             </div>
 
-            {/* Understood Concepts Section (Green) */}
-            {understoodConcepts.length > 0 && (
-              <div className="bg-green-500/10 backdrop-blur-sm border border-green-500/30 rounded-xl p-4 mb-6">
+            {/* Mastered Concepts Section (Green) - 80%+ */}
+            {mastered.length > 0 && (
+              <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 backdrop-blur-sm border border-green-500/30 rounded-xl p-4 mb-6">
                 <h3 className="text-base font-semibold text-green-400 mb-3 flex items-center gap-2">
-                  <CheckCircle size={16} /> Concepts You've Mastered (80%+)
+                  <Trophy size={16} /> Mastered Concepts (80-100%)
+                  <span className="text-xs text-green-500 ml-2">Excellent work! Keep maintaining these skills.</span>
                 </h3>
                 <div className="space-y-3">
-                  {paginatedUnderstoodConcepts.map((gap, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20">
-                      <div>
-                        <p className="font-medium text-white text-sm capitalize">{gap.concept?.replace(/_/g, ' ')}</p>
+                  {paginatedMastered.map((concept, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Star size={14} className="text-yellow-400" />
+                          <p className="font-medium text-white text-sm capitalize">{concept.concept?.replace(/_/g, ' ')}</p>
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
-                            {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
+                            Mastery: {Math.round(concept.mastery)}%
                           </span>
+                          <span className="text-xs text-green-400">✓ Fully understood</span>
                         </div>
                       </div>
-                      <CheckCircle size={20} className="text-green-400" />
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full" style={{ width: `${concept.mastery}%` }} />
+                        </div>
+                        <CheckCircle size={18} className="text-green-400" />
+                      </div>
                     </div>
                   ))}
                 </div>
-                {totalUnderstoodPages > 1 && (
-                  <Pagination currentPage={understoodCurrentPage} totalPages={totalUnderstoodPages} onPageChange={setUnderstoodCurrentPage} />
+                {totalMasteredPages > 1 && (
+                  <Pagination currentPage={masteredPage} totalPages={totalMasteredPages} onPageChange={setMasteredPage} color="green" />
                 )}
                 <div className="text-center text-xs text-gray-500 mt-2">
-                  Showing {paginatedUnderstoodConcepts.length} of {understoodConcepts.length} mastered concepts
+                  Showing {paginatedMastered.length} of {mastered.length} mastered concepts
                 </div>
               </div>
             )}
 
-            {/* Primary Gaps Section */}
-            {primaryGaps.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
-                <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2"><AlertCircle size={16} /> High Priority Gaps</h3>
+            {/* Developing Concepts Section (Yellow) - 60-79% */}
+            {developing.length > 0 && (
+              <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-xl p-4 mb-6">
+                <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                  <TrendingUp size={16} /> Developing Concepts (60-79%)
+                  <span className="text-xs text-yellow-500 ml-2">Almost there! A little more practice.</span>
+                </h3>
+                <div className="space-y-3">
+                  {paginatedDeveloping.map((concept, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 hover:bg-yellow-500/10 transition">
+                      <div className="flex-1">
+                        <p className="font-medium text-white text-sm capitalize">{concept.concept?.replace(/_/g, ' ')}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">
+                            Mastery: {Math.round(concept.mastery)}%
+                          </span>
+                          <span className="text-xs text-yellow-400">→ {Math.round(100 - concept.mastery)}% to mastery</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${concept.mastery}%` }} />
+                        </div>
+                        <Link href={`/student/recommendations?concept=${concept.concept}`}>
+                          <button className="text-xs text-blue-400 hover:text-blue-300 transition">Practice →</button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {totalDevelopingPages > 1 && (
+                  <Pagination currentPage={developingPage} totalPages={totalDevelopingPages} onPageChange={setDevelopingPage} color="yellow" />
+                )}
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  Showing {paginatedDeveloping.length} of {developing.length} developing concepts
+                </div>
+              </div>
+            )}
+
+            {/* Needs Improvement Section (Red) - Below 60% */}
+            {needsImprovement.length > 0 && (
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2">
+                  <AlertCircle size={16} /> Needs Improvement (Below 60%)
+                  <span className="text-xs text-red-500 ml-2">Focus on these concepts first</span>
+                </h3>
                 <div className="space-y-4">
-                  {paginatedPrimaryGaps.map((gap, idx) => (
+                  {paginatedNeedsImprovement.map((gap, idx) => (
                     <div key={idx} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                         <div className="flex-1">
                           <p className="font-medium text-white text-sm capitalize break-words">{gap.concept?.replace(/_/g, ' ')}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${getMasteryColor(gap.mastery)}`}>
-                              {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
+                              Mastery: {Math.round(gap.mastery)}%
                             </span>
+                            <span className="text-xs text-red-400">⚠️ Critical - Needs attention</span>
                           </div>
                         </div>
                         <Link href={`/student/recommendations?concept=${gap.concept}`}>
                           <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">Get Resources →</button>
                         </Link>
                       </div>
-                      {gap.specific_errors && gap.specific_errors.length > 0 && (<p className="text-xs text-gray-400 mt-2 break-words">• {gap.specific_errors[0]}</p>)}
-                      <button onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])} disabled={explaining[gap.concept]} className="text-xs text-purple-400 hover:text-purple-300 transition mt-2 flex items-center gap-1">
-                        {explaining[gap.concept] ? (<><Loader2 size={10} className="animate-spin" /> Analyzing...</>) : (<><Bot size={10} /> Explain with AI</>)}
+                      {gap.specific_errors && gap.specific_errors.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-2 break-words">• {gap.specific_errors[0]}</p>
+                      )}
+                      <button 
+                        onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])} 
+                        disabled={explaining[gap.concept]} 
+                        className="text-xs text-purple-400 hover:text-purple-300 transition mt-2 flex items-center gap-1"
+                      >
+                        {explaining[gap.concept] ? (
+                          <><Loader2 size={10} className="animate-spin" /> Analyzing...</>
+                        ) : (
+                          <><Bot size={10} /> Explain with AI</>
+                        )}
                       </button>
-                      {aiExplanation[gap.concept] && (<div className="mt-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20"><FormattedAIExplanation content={aiExplanation[gap.concept]} /></div>)}
+                      {aiExplanation[gap.concept] && (
+                        <div className="mt-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <FormattedAIExplanation content={aiExplanation[gap.concept]} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-                {totalPrimaryPages > 1 && (
-                  <Pagination currentPage={primaryCurrentPage} totalPages={totalPrimaryPages} onPageChange={setPrimaryCurrentPage} />
+                {totalNeedsImprovementPages > 1 && (
+                  <Pagination currentPage={needsImprovementPage} totalPages={totalNeedsImprovementPages} onPageChange={setNeedsImprovementPage} color="red" />
                 )}
                 <div className="text-center text-xs text-gray-500 mt-2">
-                  Showing {paginatedPrimaryGaps.length} of {primaryGaps.length} high priority gaps
+                  Showing {paginatedNeedsImprovement.length} of {needsImprovement.length} concepts needing improvement
                 </div>
               </div>
             )}
 
-            {/* Secondary Gaps Section */}
-            {secondaryGaps.length > 0 && (
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-                <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2"><TrendingDown size={16} /> Improvement Areas</h3>
-                <div className="space-y-2">
-                  {paginatedSecondaryGaps.map((gap, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 py-2 border-b border-white/10 last:border-0">
-                      <div><p className="font-medium text-white text-sm capitalize break-words">{gap.concept?.replace(/_/g, ' ')}</p><span className="text-xs text-gray-400">{Math.round(gap.mastery)}% mastery</span></div>
-                      <Link href={`/student/recommendations?concept=${gap.concept}`}><button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">Practice →</button></Link>
-                    </div>
-                  ))}
-                </div>
-                {totalSecondaryPages > 1 && (
-                  <Pagination currentPage={secondaryCurrentPage} totalPages={totalSecondaryPages} onPageChange={setSecondaryCurrentPage} />
-                )}
-                <div className="text-center text-xs text-gray-500 mt-2">
-                  Showing {paginatedSecondaryGaps.length} of {secondaryGaps.length} improvement areas
-                </div>
-              </div>
-            )}
-
-            {/* No Gaps State */}
-            {primaryGaps.length === 0 && secondaryGaps.length === 0 && understoodConcepts.length === 0 && (
+            {/* No Data State */}
+            {needsImprovement.length === 0 && developing.length === 0 && mastered.length === 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8 sm:py-12">
                 <Brain size={40} className="mx-auto text-gray-600 mb-3" />
-                <h3 className="text-base font-medium text-white mb-1">No Gaps Detected</h3>
-                <p className="text-xs text-gray-500 mb-4">Complete a quiz to see your knowledge gaps</p>
+                <h3 className="text-base font-medium text-white mb-1">No Data Available</h3>
+                <p className="text-xs text-gray-500 mb-4">Complete a quiz and click 'Save & Analyze' to see your knowledge gaps</p>
                 <Link href="/student/quizzes"><button className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm hover:bg-blue-500/30 transition">Take a Quiz</button></Link>
               </div>
             )}
