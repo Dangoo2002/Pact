@@ -12,36 +12,36 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get total students with data
+    // Get total students who have completed quizzes
     const totalStudentsResult = await query(`
       SELECT COUNT(DISTINCT student_id) as count 
-      FROM instructor_analytics 
-      WHERE mastery_score IS NOT NULL AND mastery_score > 0
+      FROM quiz_sessions 
+      WHERE status = 'completed'
     `);
     const totalStudents = parseInt(totalStudentsResult.rows[0]?.count || 1);
 
-    // Get class gap heatmap from instructor_analytics (mastery < 50)
+    // Get class gap heatmap from quiz_sessions (mastery < 50)
     const gapResult = await query(`
       SELECT 
-        concept,
-        COUNT(DISTINCT student_id) as struggling_count,
-        ROUND(COUNT(DISTINCT student_id)::numeric / $1 * 100) as struggling_percentage,
-        ROUND(AVG(mastery_score)) as avg_mastery,
-        SUM(total_questions) as total_attempts,
-        SUM(correct_answers) as correct_count,
+        qs.concept,
+        COUNT(DISTINCT qs.student_id) as struggling_count,
+        ROUND(COUNT(DISTINCT qs.student_id)::numeric / $1 * 100) as struggling_percentage,
+        ROUND(AVG(qs.score::numeric / qs.total_questions * 100)) as avg_mastery,
+        COUNT(qs.session_id) as total_attempts,
+        SUM(qs.score) as correct_count,
         CASE 
-          WHEN COUNT(DISTINCT student_id)::numeric / $1 * 100 >= 50 THEN 'high'
-          WHEN COUNT(DISTINCT student_id)::numeric / $1 * 100 >= 30 THEN 'medium'
+          WHEN COUNT(DISTINCT qs.student_id)::numeric / $1 * 100 >= 50 THEN 'high'
+          WHEN COUNT(DISTINCT qs.student_id)::numeric / $1 * 100 >= 30 THEN 'medium'
           ELSE 'low'
         END as priority
-      FROM instructor_analytics
-      WHERE mastery_score < 50 AND concept IS NOT NULL AND mastery_score IS NOT NULL
-      GROUP BY concept
+      FROM quiz_sessions qs
+      WHERE qs.status = 'completed' AND qs.score::numeric / qs.total_questions * 100 < 50 AND qs.concept IS NOT NULL
+      GROUP BY qs.concept
       ORDER BY struggling_percentage DESC
       LIMIT 10
     `, [totalStudents]);
 
-    // Get error patterns from gap_analysis JSONB data
+    // Get error patterns from gap_analysis JSONB data (keep as is)
     const errorResult = await query(`
       SELECT 
         ga.concept,
@@ -55,7 +55,6 @@ export async function GET() {
       LIMIT 15
     `);
 
-    // Format error patterns
     const commonErrorPatterns = errorResult.rows.map(row => ({
       pattern: row.weakness,
       frequency: parseInt(row.frequency),

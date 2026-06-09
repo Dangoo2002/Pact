@@ -114,14 +114,14 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex flex-wrap justify-center items-center gap-2 mt-8 mb-4">
+    <div className="flex flex-wrap justify-center items-center gap-2 mt-6 mb-4">
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm font-medium ${
           currentPage === 1 
             ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-            : 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 hover:scale-105'
+            : 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30'
         }`}
       >
         <ChevronLeft size={16} />
@@ -150,7 +150,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         className={`flex items-center gap-1 px-3 sm:px-4 py-2 rounded-lg transition text-sm font-medium ${
           currentPage === totalPages 
             ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
-            : 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 hover:scale-105'
+            : 'bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30'
         }`}
       >
         <span>Next</span>
@@ -160,9 +160,8 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
   );
 };
 
-// Student Card Component - Fixed mastery formatting
+// Student Card Component
 const StudentCard = ({ student, isAtRisk }) => {
-  // Safely convert mastery to number
   let masteryValue = 0;
   if (typeof student.mastery === 'number') {
     masteryValue = student.mastery;
@@ -173,7 +172,7 @@ const StudentCard = ({ student, isAtRisk }) => {
   }
   
   return (
-    <div className={`bg-white/5 backdrop-blur-sm border rounded-xl p-4 ${isAtRisk ? 'border-red-500/30' : 'border-white/10'}`}>
+    <div className={`bg-white/5 backdrop-blur-sm border rounded-xl p-4 hover:border-purple-500/30 transition ${isAtRisk ? 'border-red-500/30' : 'border-white/10'}`}>
       <div className="flex items-center gap-3 mb-3">
         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isAtRisk ? 'bg-red-500/20' : 'bg-purple-500/20'}`}>
           <User size={24} className={isAtRisk ? 'text-red-400' : 'text-purple-400'} />
@@ -221,9 +220,8 @@ const StudentCard = ({ student, isAtRisk }) => {
   );
 };
 
-// Stats Summary Card - Fixed average mastery formatting
+// Stats Summary Card
 const StatsSummary = ({ totalStudents, activeStudents, atRiskCount, averageMastery }) => {
-  // Safely convert averageMastery to number
   let avgMasteryValue = 0;
   if (typeof averageMastery === 'number') {
     avgMasteryValue = averageMastery;
@@ -234,7 +232,7 @@ const StatsSummary = ({ totalStudents, activeStudents, atRiskCount, averageMaste
   }
   
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
       <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
         <Users size={18} className="text-purple-400 mx-auto mb-1" />
         <p className="text-xl font-bold text-white">{totalStudents}</p>
@@ -365,13 +363,9 @@ export default function InstructorStudentsPage() {
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10 transition">
               <Menu size={20} className="text-white" />
             </button>
-            
             <div className="flex-1 ml-2 md:ml-0">
-              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
-                Students
-              </h1>
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">Students</h1>
             </div>
-
             <div className="flex items-center gap-2">
               <button onClick={fetchStudents} disabled={refreshing} className="p-2 rounded-lg hover:bg-white/10 transition">
                 <RefreshCw size={18} className={`text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
@@ -394,9 +388,9 @@ export default function InstructorStudentsPage() {
             averageMastery={averageMastery}
           />
 
-          {/* At-Risk Warning Banner */}
+          {/* At-Risk Warning Banner - Directly below stats, no extra space */}
           {atRiskCount > 0 && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-6 flex items-center justify-between flex-wrap gap-2">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <AlertCircle size={16} className="text-red-400" />
                 <span className="text-sm text-gray-300">{atRiskCount} student(s) need attention (mastery below 50%)</span>
@@ -407,8 +401,8 @@ export default function InstructorStudentsPage() {
             </div>
           )}
 
-          {/* Search Bar */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
+          {/* Search Bar - Directly below banner, no extra space */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 mb-6">
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input 
@@ -450,7 +444,7 @@ export default function InstructorStudentsPage() {
               />
               
               {/* Page Info */}
-              <div className="text-center text-xs text-gray-500 mt-4">
+              <div className="text-center text-xs text-gray-500 mt-2">
                 Showing {filteredStudents.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
               </div>
             </>

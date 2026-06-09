@@ -12,25 +12,22 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all students with their mastery
-    const studentMasteryResult = await query(`
-      WITH student_mastery AS (
-        SELECT 
-          u.user_id as id,
-          u.full_name as name,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as mastery,
-          COUNT(DISTINCT ia.session_id) as total_quizzes,
-          COUNT(DISTINCT ia.concept) as concepts_mastered,
-          MAX(ia.analysis_date) as last_active
-        FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
-        WHERE u.role = 'student'
-        GROUP BY u.user_id, u.full_name
-      )
-      SELECT * FROM student_mastery ORDER BY mastery DESC
+    // Get student performance from quiz_sessions (consistent calculation)
+    const studentPerformanceResult = await query(`
+      SELECT 
+        u.user_id as id,
+        u.full_name as name,
+        COALESCE(ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)), 0) as mastery,
+        COUNT(CASE WHEN qs.status = 'completed' THEN 1 END) as total_quizzes,
+        COUNT(DISTINCT CASE WHEN qs.status = 'completed' THEN qs.concept END) as concepts_mastered
+      FROM users u
+      LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
+      WHERE u.role = 'student'
+      GROUP BY u.user_id, u.full_name
+      ORDER BY mastery DESC
     `);
     
-    const studentPerformance = studentMasteryResult.rows.map(s => ({
+    const studentPerformance = studentPerformanceResult.rows.map(s => ({
       id: s.id,
       name: s.name,
       mastery: parseInt(s.mastery) || 0,
@@ -55,11 +52,11 @@ export async function GET(request) {
     // Get performance trend (daily average scores for last 30 days)
     const trendResult = await query(`
       SELECT 
-        DATE_TRUNC('day', started_at) as date,
+        DATE_TRUNC('day', completed_at) as date,
         ROUND(AVG(score::numeric / total_questions * 100)) as avg_score
       FROM quiz_sessions
-      WHERE status = 'completed' AND started_at > NOW() - INTERVAL '30 days'
-      GROUP BY DATE_TRUNC('day', started_at)
+      WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '30 days'
+      GROUP BY DATE_TRUNC('day', completed_at)
       ORDER BY date ASC
     `);
 
@@ -68,15 +65,15 @@ export async function GET(request) {
       score: parseInt(row.avg_score) || 0
     }));
 
-    // Get concept mastery from instructor_analytics
+    // Get concept mastery from quiz_sessions
     const conceptResult = await query(`
       SELECT 
-        concept,
-        ROUND(AVG(mastery_score)) as mastery,
-        COUNT(DISTINCT student_id) as student_count
-      FROM instructor_analytics
-      WHERE mastery_score IS NOT NULL
-      GROUP BY concept
+        qs.concept,
+        ROUND(AVG(qs.score::numeric / qs.total_questions * 100)) as mastery,
+        COUNT(DISTINCT qs.student_id) as student_count
+      FROM quiz_sessions qs
+      WHERE qs.status = 'completed'
+      GROUP BY qs.concept
       ORDER BY mastery ASC
       LIMIT 10
     `);
@@ -104,11 +101,11 @@ export async function GET(request) {
     // Get weekly progress (last 6 weeks)
     const weeklyResult = await query(`
       SELECT 
-        DATE_TRUNC('week', started_at) as week,
+        DATE_TRUNC('week', completed_at) as week,
         COUNT(*) as completed
       FROM quiz_sessions
-      WHERE status = 'completed' AND started_at > NOW() - INTERVAL '6 weeks'
-      GROUP BY DATE_TRUNC('week', started_at)
+      WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '6 weeks'
+      GROUP BY DATE_TRUNC('week', completed_at)
       ORDER BY week ASC
     `);
 
@@ -144,7 +141,7 @@ export async function GET(request) {
       date: row.date
     }));
 
-    // Calculate improvement rate (compare last 2 weeks to previous 2 weeks)
+    // Calculate improvement rate
     let improvementRate = 0;
     if (performanceTrend.length >= 4) {
       const recentAvg = performanceTrend.slice(-2).reduce((sum, d) => sum + d.score, 0) / 2;
@@ -163,17 +160,11 @@ export async function GET(request) {
         atRiskCount: atRiskCount,
         topPerformers: topPerformersCount
       },
-      performanceTrend: performanceTrend.length > 0 ? performanceTrend : [
-        { date: 'No data', score: 0 }
-      ],
-      conceptMastery: conceptMastery.length > 0 ? conceptMastery : [
-        { concept: 'No data', mastery: 0 }
-      ],
+      performanceTrend: performanceTrend.length > 0 ? performanceTrend : [{ date: 'No data', score: 0 }],
+      conceptMastery: conceptMastery.length > 0 ? conceptMastery : [{ concept: 'No data', mastery: 0 }],
       studentPerformance,
       classDistribution,
-      weeklyProgress: weeklyProgress.length > 0 ? weeklyProgress : [
-        { week: 'Week 1', completed: 0 }
-      ],
+      weeklyProgress: weeklyProgress.length > 0 ? weeklyProgress : [{ week: 'Week 1', completed: 0 }],
       recentAssessments
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-// app/api/instructor/dashboard/route.js - Updated average mastery calculation
+// app/api/instructor/dashboard/route.js
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -12,41 +12,40 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get total at-risk count (mastery < 50 OR no data)
+    // Get total at-risk count (mastery < 50 from quiz_sessions)
     const atRiskTotalResult = await query(`
-      WITH student_mastery AS (
+      WITH student_quiz_mastery AS (
         SELECT 
           u.user_id,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as avg_mastery,
-          COUNT(ia.session_id) as quiz_count
+          COALESCE(ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)), 0) as avg_mastery,
+          COUNT(CASE WHEN qs.status = 'completed' THEN 1 END) as quiz_count
         FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
+        LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
         WHERE u.role = 'student'
         GROUP BY u.user_id
       )
       SELECT COUNT(*) as count
-      FROM student_mastery
+      FROM student_quiz_mastery
       WHERE avg_mastery < 50 OR quiz_count = 0
     `);
-    
     const totalAtRisk = parseInt(atRiskTotalResult.rows[0]?.count || 0);
 
-    // Get at-risk students list (limited to 5 for display)
+    // Get at-risk students list (limited to 5)
     const atRiskStudentsResult = await query(`
-      WITH student_mastery AS (
+      WITH student_quiz_mastery AS (
         SELECT 
           u.user_id as id,
           u.full_name as name,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as mastery,
-          COUNT(ia.session_id) as quiz_count,
-          MAX(ia.analysis_date) as last_active
+          COALESCE(ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)), 0) as mastery,
+          COUNT(CASE WHEN qs.status = 'completed' THEN 1 END) as quiz_count,
+          MAX(qs.completed_at) as last_active
         FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
+        LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
         WHERE u.role = 'student'
         GROUP BY u.user_id, u.full_name
       )
       SELECT id, name, mastery, quiz_count, last_active
-      FROM student_mastery
+      FROM student_quiz_mastery
       WHERE mastery < 50 OR quiz_count = 0
       ORDER BY mastery ASC
       LIMIT 5
@@ -60,44 +59,44 @@ export async function GET() {
       last_active: student.last_active
     }));
 
-    // Get all students count
+    // Get total students count
     const totalStudentsResult = await query(`
       SELECT COUNT(*) as count FROM users WHERE role = 'student'
     `);
     const totalStudents = parseInt(totalStudentsResult.rows[0]?.count || 0);
 
-    // Get active students (activity in last 7 days)
+    // Get active students (activity in last 7 days from quiz_sessions)
     const activeResult = await query(`
       SELECT COUNT(DISTINCT student_id) as count
-      FROM instructor_analytics
-      WHERE analysis_date > NOW() - INTERVAL '7 days'
+      FROM quiz_sessions
+      WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '7 days'
     `);
     const activeStudents = parseInt(activeResult.rows[0]?.count || 0);
 
-    // Get average mastery - INCLUDING students with no data (treat as 0)
+    // Get average mastery from quiz_sessions
     const avgMasteryResult = await query(`
-      WITH all_students AS (
+      WITH student_quiz_avg AS (
         SELECT 
           u.user_id,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as avg_mastery
+          COALESCE(ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)), 0) as avg_mastery
         FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
+        LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
         WHERE u.role = 'student'
         GROUP BY u.user_id
       )
       SELECT ROUND(AVG(avg_mastery)) as avg_mastery
-      FROM all_students
+      FROM student_quiz_avg
     `);
     const averageMastery = Math.round(avgMasteryResult.rows[0]?.avg_mastery || 0);
 
-    // Get concept mastery (only from students with data)
+    // Get concept mastery from quiz_sessions
     const conceptMasteryResult = await query(`
       SELECT 
-        concept,
-        ROUND(AVG(mastery_score)) as avg_mastery
-      FROM instructor_analytics
-      WHERE concept IS NOT NULL AND mastery_score IS NOT NULL
-      GROUP BY concept
+        qs.concept,
+        ROUND(AVG(qs.score::numeric / qs.total_questions * 100)) as avg_mastery
+      FROM quiz_sessions qs
+      WHERE qs.status = 'completed' AND qs.concept IS NOT NULL
+      GROUP BY qs.concept
       ORDER BY avg_mastery DESC
       LIMIT 6
     `);
@@ -107,15 +106,15 @@ export async function GET() {
       mastery: Math.round(row.avg_mastery || 0)
     }));
 
-    // Calculate distribution - INCLUDING students with no data
+    // Calculate distribution from quiz_sessions
     const distributionResult = await query(`
-      WITH student_mastery AS (
+      WITH student_quiz_mastery AS (
         SELECT 
           u.user_id,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as avg_mastery,
-          COUNT(ia.session_id) as quiz_count
+          COALESCE(ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)), 0) as avg_mastery,
+          COUNT(CASE WHEN qs.status = 'completed' THEN 1 END) as quiz_count
         FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
+        LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
         WHERE u.role = 'student'
         GROUP BY u.user_id
       )
@@ -125,7 +124,7 @@ export async function GET() {
         SUM(CASE WHEN avg_mastery >= 60 AND avg_mastery < 80 THEN 1 ELSE 0 END) as good,
         SUM(CASE WHEN avg_mastery >= 50 AND avg_mastery < 60 THEN 1 ELSE 0 END) as average,
         SUM(CASE WHEN avg_mastery < 50 OR quiz_count = 0 THEN 1 ELSE 0 END) as at_risk
-      FROM student_mastery
+      FROM student_quiz_mastery
     `);
     
     const dist = distributionResult.rows[0] || {};
@@ -136,16 +135,16 @@ export async function GET() {
       { name: 'At Risk (<50%)', value: parseInt(dist.at_risk) || 0, color: '#ef4444' }
     ];
 
-    // Get class gap heatmap
+    // Get class gap heatmap from quiz_sessions
     const gapResult = await query(`
       SELECT 
-        concept,
-        COUNT(DISTINCT student_id) as struggling_count,
-        ROUND(COUNT(DISTINCT student_id)::numeric / NULLIF((SELECT COUNT(DISTINCT student_id) FROM instructor_analytics), 1) * 100) as struggling_percentage,
-        ROUND(AVG(mastery_score)) as avg_mastery
-      FROM instructor_analytics
-      WHERE mastery_score < 50
-      GROUP BY concept
+        qs.concept,
+        COUNT(DISTINCT qs.student_id) as struggling_count,
+        ROUND(COUNT(DISTINCT qs.student_id)::numeric / NULLIF((SELECT COUNT(DISTINCT student_id) FROM quiz_sessions WHERE status = 'completed'), 1) * 100) as struggling_percentage,
+        ROUND(AVG(qs.score::numeric / qs.total_questions * 100)) as avg_mastery
+      FROM quiz_sessions qs
+      WHERE qs.status = 'completed' AND qs.score::numeric / qs.total_questions * 100 < 50
+      GROUP BY qs.concept
       ORDER BY struggling_count DESC
       LIMIT 5
     `);
@@ -156,14 +155,14 @@ export async function GET() {
       avg_mastery: Math.round(gap.avg_mastery || 0)
     }));
 
-    // Get weekly trend
+    // Get weekly trend from quiz_sessions
     const trendResult = await query(`
       SELECT 
-        DATE_TRUNC('week', analysis_date) as week,
-        ROUND(AVG(mastery_score)) as avg_score
-      FROM instructor_analytics
-      WHERE analysis_date > NOW() - INTERVAL '6 weeks'
-      GROUP BY DATE_TRUNC('week', analysis_date)
+        DATE_TRUNC('week', completed_at) as week,
+        ROUND(AVG(score::numeric / total_questions * 100)) as avg_score
+      FROM quiz_sessions
+      WHERE status = 'completed' AND completed_at > NOW() - INTERVAL '6 weeks'
+      GROUP BY DATE_TRUNC('week', completed_at)
       ORDER BY week ASC
     `);
 
@@ -172,13 +171,17 @@ export async function GET() {
       avg: Math.round(row.avg_score || 0)
     }));
 
+    // Provide fallback data if empty
+    const finalClassProgress = classProgress.length > 0 ? classProgress : [{ concept: 'No data yet', mastery: 0 }];
+    const finalPerformanceTrend = performanceTrend.length > 0 ? performanceTrend : [{ week: 'Week 1', avg: 0 }];
+
     return NextResponse.json({
       totalStudents,
       activeStudents,
-      averageMastery,  // Now shows 34% (including students with no data)
+      averageMastery,
       pendingAssignments: 0,
-      classProgress: classProgress.length > 0 ? classProgress : [{ concept: 'No data yet', mastery: 0 }],
-      performanceTrend: performanceTrend.length > 0 ? performanceTrend : [{ week: 'Week 1', avg: 0 }],
+      classProgress: finalClassProgress,
+      performanceTrend: finalPerformanceTrend,
       distributionData,
       atRiskStudents,
       totalAtRisk,

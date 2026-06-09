@@ -12,20 +12,23 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all students with their mastery (including those with no data)
+    // Get all students with their mastery calculated from actual quiz scores
     const studentsResult = await query(`
-      WITH student_mastery AS (
+      WITH student_quiz_performance AS (
         SELECT 
           u.user_id as id,
           u.full_name as name,
           u.email,
           u.created_at,
-          COALESCE(ROUND(AVG(ia.mastery_score)), 0) as mastery,
-          COUNT(ia.session_id) as quiz_count,
-          COUNT(DISTINCT ia.concept) as concepts_count,
-          MAX(ia.analysis_date) as last_active
+          COALESCE(
+            ROUND(AVG(CASE WHEN qs.status = 'completed' THEN qs.score::numeric / qs.total_questions * 100 ELSE NULL END)),
+            0
+          ) as mastery,
+          COUNT(CASE WHEN qs.status = 'completed' THEN 1 END) as quiz_count,
+          COUNT(DISTINCT CASE WHEN qs.status = 'completed' THEN qs.concept END) as concepts_count,
+          MAX(qs.completed_at) as last_active
         FROM users u
-        LEFT JOIN instructor_analytics ia ON u.user_id = ia.student_id
+        LEFT JOIN quiz_sessions qs ON qs.student_id::integer = u.user_id
         WHERE u.role = 'student'
         GROUP BY u.user_id, u.full_name, u.email, u.created_at
       )
@@ -46,7 +49,7 @@ export async function GET() {
           WHEN last_active > NOW() - INTERVAL '7 days' THEN 'active'
           ELSE 'inactive'
         END as status
-      FROM student_mastery
+      FROM student_quiz_performance
       ORDER BY mastery DESC, name ASC
     `);
 
