@@ -1,3 +1,4 @@
+// app/student/gaps/page.jsx
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -6,7 +7,7 @@ import Link from 'next/link';
 import { 
   Code, AlertCircle, TrendingDown, ChevronRight, Sparkles,
   Menu, User, LogOut, Bell, Brain, Target, BookOpen, LayoutDashboard, Loader2, Bot,
-  Copy, Check
+  Copy, Check, CheckCircle, ChevronLeft
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -48,7 +49,6 @@ const StarBackground = () => {
 
 // ─── Formatted AI Content Component ──────────────────────────────────────────
 const FormattedAIExplanation = ({ content }) => {
-  // Parse code blocks
   const parts = [];
   let lastIndex = 0;
   const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
@@ -74,23 +74,18 @@ const FormattedAIExplanation = ({ content }) => {
 };
 
 const TextPart = ({ content }) => {
-  // Process bold text (**text** -> strong)
-  // Process bullet points
   const lines = content.split('\n');
   const processedLines = lines.map(line => {
-    // Handle bullet points
     if (line.trim().startsWith('• ') || line.trim().startsWith('- ')) {
       const bulletContent = line.trim().substring(2);
       return `<div class="flex items-start gap-2 my-1"><span class="text-purple-400 flex-shrink-0">•</span><span>${bulletContent}</span></div>`;
     }
-    // Handle numbered lists
     if (/^\d+\.\s/.test(line.trim())) {
       const matchNum = line.trim().match(/^(\d+)\.\s(.*)/);
       if (matchNum) {
         return `<div class="flex items-start gap-2 my-1"><span class="text-purple-400 font-medium flex-shrink-0">${matchNum[1]}.</span><span>${matchNum[2]}</span></div>`;
       }
     }
-    // Handle section headers (text followed by colon)
     if (line.trim().endsWith(':') && line.trim().length < 50) {
       return `<div class="font-semibold text-purple-300 mt-2 mb-1">${line}</div>`;
     }
@@ -98,9 +93,7 @@ const TextPart = ({ content }) => {
     return `<div>${line}</div>`;
   }).join('');
   
-  // Apply bold formatting
   const withBold = processedLines.replace(/\*\*(.*?)\*\*/g, '<strong class="text-purple-300 font-semibold">$1</strong>');
-  
   return <div className="text-gray-200 leading-relaxed text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: withBold }} />;
 };
 
@@ -117,17 +110,79 @@ const CodeBlock = ({ code, language }) => {
     <div className="relative my-2 rounded-lg overflow-hidden bg-[#1E2A3A] border border-white/20">
       <div className="flex items-center justify-between px-3 py-1 bg-[#0F172A] border-b border-white/10">
         <span className="text-xs text-gray-400 font-mono">{language}</span>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition px-2 py-0.5 rounded hover:bg-white/10"
-        >
+        <button onClick={handleCopy} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition px-2 py-0.5 rounded hover:bg-white/10">
           {copied ? <Check size={12} /> : <Copy size={12} />}
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <pre className="p-3 overflow-x-auto text-xs font-mono text-gray-300">
-        <code>{code}</code>
-      </pre>
+      <pre className="p-3 overflow-x-auto text-xs font-mono text-gray-300"><code>{code}</code></pre>
+    </div>
+  );
+};
+
+// ─── Pagination Component ────────────────────────────────────────────────────
+const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-wrap justify-center items-center gap-2 mt-4 pt-4 border-t border-white/10">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition text-sm ${
+          currentPage === 1 
+            ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+            : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+        }`}
+      >
+        <ChevronLeft size={14} />
+        <span>Prev</span>
+      </button>
+      
+      <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+        {getPageNumbers().map((pageNum) => (
+          <button
+            key={pageNum}
+            onClick={() => onPageChange(pageNum)}
+            className={`min-w-[32px] px-2 py-1 rounded-lg text-xs transition ${
+              currentPage === pageNum
+                ? 'bg-blue-500 text-white'
+                : 'text-gray-400 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {pageNum}
+          </button>
+        ))}
+      </div>
+      
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition text-sm ${
+          currentPage === totalPages 
+            ? 'bg-white/5 text-gray-500 cursor-not-allowed' 
+            : 'bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30'
+        }`}
+      >
+        <span>Next</span>
+        <ChevronRight size={14} />
+      </button>
     </div>
   );
 };
@@ -135,33 +190,11 @@ const CodeBlock = ({ code, language }) => {
 // ─── Skeleton Screen ──────────────────────────────────────────────────────────
 const GapsSkeleton = () => (
   <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6 animate-pulse">
-    <div className="mb-5">
-      <div className="h-6 sm:h-7 w-40 bg-white/10 rounded-lg mb-2" />
-      <div className="h-3 sm:h-4 w-64 bg-white/5 rounded-lg" />
-    </div>
+    <div className="mb-5"><div className="h-6 sm:h-7 w-40 bg-white/10 rounded-lg mb-2" /><div className="h-3 sm:h-4 w-64 bg-white/5 rounded-lg" /></div>
     <div className="grid grid-cols-3 gap-3 mb-6">
-      {[...Array(3)].map((_, i) => (
-        <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
-          <div className="w-6 h-6 bg-white/10 rounded-lg mx-auto mb-2" />
-          <div className="h-6 w-12 bg-white/10 rounded mx-auto mb-1" />
-          <div className="h-3 w-16 bg-white/5 rounded mx-auto" />
-        </div>
-      ))}
+      {[...Array(3)].map((_, i) => (<div key={i} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"><div className="w-6 h-6 bg-white/10 rounded-lg mx-auto mb-2" /><div className="h-6 w-12 bg-white/10 rounded mx-auto mb-1" /><div className="h-3 w-16 bg-white/5 rounded mx-auto" /></div>))}
     </div>
-    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
-      <div className="h-5 w-32 bg-white/10 rounded mb-3" />
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="border-b border-white/10 pb-3">
-            <div className="flex justify-between items-start mb-2">
-              <div className="h-4 w-32 bg-white/10 rounded" />
-              <div className="h-6 w-20 bg-white/10 rounded" />
-            </div>
-            <div className="h-3 w-48 bg-white/5 rounded mt-2" />
-          </div>
-        ))}
-      </div>
-    </div>
+    <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6"><div className="h-5 w-32 bg-white/10 rounded mb-3" /><div className="space-y-3">{[...Array(3)].map((_, i) => (<div key={i} className="border-b border-white/10 pb-3"><div className="flex justify-between items-start mb-2"><div className="h-4 w-32 bg-white/10 rounded" /><div className="h-6 w-20 bg-white/10 rounded" /></div><div className="h-3 w-48 bg-white/5 rounded mt-2" /></div>))}</div></div>
   </div>
 );
 
@@ -186,49 +219,12 @@ const Sidebar = ({ isOpen, onClose }) => {
   
   return (
     <>
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity duration-300"
-          onClick={onClose}
-        />
-      )}
+      {isOpen && (<div className="fixed inset-0 bg-black/60 z-40 md:hidden transition-opacity duration-300" onClick={onClose} />)}
       <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628] backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-500/20 p-2 rounded-xl">
-                <Code className="h-5 w-5 text-blue-400" />
-              </div>
-              <span className="text-xl font-bold text-white">PACT</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">Student Portal</p>
-          </div>
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                  <Icon size={18} />
-                  <span className="text-sm">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-blue-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{session?.user?.name || 'Student'}</p>
-                <p className="text-xs text-gray-500 capitalize truncate">{role}</p>
-              </div>
-            </div>
-            <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
-              <LogOut size={16} />
-              Sign Out
-            </button>
-          </div>
+          <div className="p-4 border-b border-white/10"><div className="flex items-center gap-2"><div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div><span className="text-xl font-bold text-white">PACT</span></div><p className="text-xs text-gray-500 mt-2">Student Portal</p></div>
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">{navItems.map((item) => { const Icon = item.icon; return (<Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition"><Icon size={18} /><span className="text-sm">{item.label}</span></Link>); })}</nav>
+          <div className="p-4 border-t border-white/10"><div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0"><User className="h-4 w-4 text-blue-400" /></div><div className="flex-1 min-w-0"><p className="text-sm font-medium text-white truncate">{session?.user?.name || 'Student'}</p><p className="text-xs text-gray-500 capitalize truncate">{role}</p></div></div><button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} />Sign Out</button></div>
         </div>
       </div>
     </>
@@ -242,12 +238,19 @@ export default function StudentGapsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [primaryGaps, setPrimaryGaps] = useState([]);
   const [secondaryGaps, setSecondaryGaps] = useState([]);
+  const [understoodConcepts, setUnderstoodConcepts] = useState([]);
   const [overallMastery, setOverallMastery] = useState(0);
   const [loading, setLoading] = useState(true);
   const [aiExplanation, setAiExplanation] = useState({});
   const [explaining, setExplaining] = useState({});
+  
+  // Pagination states
+  const [primaryCurrentPage, setPrimaryCurrentPage] = useState(1);
+  const [secondaryCurrentPage, setSecondaryCurrentPage] = useState(1);
+  const [understoodCurrentPage, setUnderstoodCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  // ── Auth Guard ──────────────────────────────────────────────────────────────
+  // Auth Guard
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
@@ -265,9 +268,20 @@ export default function StudentGapsPage() {
       const response = await fetch(`/api/student/gaps?studentId=${session.user.id}`);
       const data = await response.json();
       
-      setPrimaryGaps((data.primary_gaps || []).slice(0, 4));
-      setSecondaryGaps((data.secondary_gaps || []).slice(0, 4));
+      setPrimaryGaps((data.primary_gaps || []).slice(0, 10));
+      setSecondaryGaps((data.secondary_gaps || []).slice(0, 10));
+      
+      // Extract understood concepts (mastery >= 80%)
+      const allConcepts = [...(data.primary_gaps || []), ...(data.secondary_gaps || [])];
+      const understood = allConcepts.filter(gap => gap.mastery >= 80);
+      setUnderstoodConcepts(understood);
+      
       setOverallMastery(data.overall_mastery || 0);
+      
+      // Reset pagination
+      setPrimaryCurrentPage(1);
+      setSecondaryCurrentPage(1);
+      setUnderstoodCurrentPage(1);
     } catch (error) {
       console.error('Failed to fetch gaps:', error);
     } finally {
@@ -289,19 +303,11 @@ export default function StudentGapsPage() {
         })
       });
       const data = await response.json();
-      // Clean the explanation - remove any remaining asterisks and format properly
       let cleanExplanation = data.explanation || `Review the fundamentals of ${concept} in ${language}.`;
-      // Replace markdown bold with HTML bold equivalent for our formatter
       cleanExplanation = cleanExplanation.replace(/\*\*(.*?)\*\*/g, '**$1**');
-      setAiExplanation(prev => ({ 
-        ...prev, 
-        [concept]: cleanExplanation
-      }));
+      setAiExplanation(prev => ({ ...prev, [concept]: cleanExplanation }));
     } catch (error) {
-      setAiExplanation(prev => ({ 
-        ...prev, 
-        [concept]: `Unable to fetch explanation for ${concept}. Please try again.` 
-      }));
+      setAiExplanation(prev => ({ ...prev, [concept]: `Unable to fetch explanation for ${concept}. Please try again.` }));
     } finally {
       setExplaining(prev => ({ ...prev, [concept]: false }));
     }
@@ -319,13 +325,21 @@ export default function StudentGapsPage() {
     return 'Needs Improvement';
   };
 
-  // ── Loading / Auth States ───────────────────────────────────────────────────
+  // Pagination helpers
+  const paginate = (items, page) => {
+    return items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  };
+
+  const totalPrimaryPages = Math.ceil(primaryGaps.length / itemsPerPage);
+  const totalSecondaryPages = Math.ceil(secondaryGaps.length / itemsPerPage);
+  const totalUnderstoodPages = Math.ceil(understoodConcepts.length / itemsPerPage);
+
+  const paginatedPrimaryGaps = paginate(primaryGaps, primaryCurrentPage);
+  const paginatedSecondaryGaps = paginate(secondaryGaps, secondaryCurrentPage);
+  const paginatedUnderstoodConcepts = paginate(understoodConcepts, understoodCurrentPage);
+
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-      </div>
-    );
+    return (<div className="min-h-screen bg-[#0A1628] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-400" /></div>);
   }
 
   if (status === 'unauthenticated') {
@@ -343,76 +357,71 @@ export default function StudentGapsPage() {
         {/* Fixed Header */}
         <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button 
-              onClick={() => setSidebarOpen(true)} 
-              className="md:hidden p-2 rounded-lg hover:bg-white/10 transition"
-            >
-              <Menu size={20} className="text-white" />
-            </button>
-            
-            <div className="flex-1 ml-2 md:ml-0">
-              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
-                Knowledge Gaps
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-400 hidden sm:block">
-                AI-identified areas where you need improvement
-              </p>
-            </div>
-
-            <button className="p-2 rounded-lg hover:bg-white/10 transition relative">
-              <Bell size={18} className="text-gray-400" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10 transition"><Menu size={20} className="text-white" /></button>
+            <div className="flex-1 ml-2 md:ml-0"><h1 className="text-base sm:text-lg md:text-xl font-bold text-white">Knowledge Gaps</h1><p className="text-xs sm:text-sm text-gray-400 hidden sm:block">AI-identified areas where you need improvement</p></div>
+            <button className="p-2 rounded-lg hover:bg-white/10 transition relative"><Bell size={18} className="text-gray-400" /><span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span></button>
           </div>
         </div>
 
         {/* Content Area */}
-        {showSkeleton ? (
-          <GapsSkeleton />
-        ) : (
+        {showSkeleton ? (<GapsSkeleton />) : (
           <div className="pt-16 sm:pt-20 px-3 sm:px-4 md:px-6 pb-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-3 gap-3 mb-6">
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-                <div className="p-1.5 rounded-lg bg-red-500/20 inline-block mb-1">
-                  <AlertCircle size={14} className="text-red-400" />
-                </div>
-                <p className="text-xl font-bold text-white">{primaryGaps.length}</p>
-                <p className="text-xs text-gray-500">High Priority</p>
+                <div className="p-1.5 rounded-lg bg-red-500/20 inline-block mb-1"><AlertCircle size={14} className="text-red-400" /></div>
+                <p className="text-xl font-bold text-white">{primaryGaps.length}</p><p className="text-xs text-gray-500">High Priority</p>
               </div>
-              
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-                <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1">
-                  <TrendingDown size={14} className="text-yellow-400" />
-                </div>
-                <p className="text-xl font-bold text-white">{secondaryGaps.length}</p>
-                <p className="text-xs text-gray-500">To Improve</p>
+                <div className="p-1.5 rounded-lg bg-yellow-500/20 inline-block mb-1"><TrendingDown size={14} className="text-yellow-400" /></div>
+                <p className="text-xl font-bold text-white">{secondaryGaps.length}</p><p className="text-xs text-gray-500">To Improve</p>
               </div>
-
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 text-center">
-                <div className="p-1.5 rounded-lg bg-blue-500/20 inline-block mb-1">
-                  <Brain size={14} className="text-blue-400" />
-                </div>
-                <p className="text-xl font-bold text-white">{overallMastery}%</p>
-                <p className="text-xs text-gray-500">Mastery</p>
+                <div className="p-1.5 rounded-lg bg-blue-500/20 inline-block mb-1"><Brain size={14} className="text-blue-400" /></div>
+                <p className="text-xl font-bold text-white">{overallMastery}%</p><p className="text-xs text-gray-500">Mastery</p>
               </div>
             </div>
+
+            {/* Understood Concepts Section (Green) */}
+            {understoodConcepts.length > 0 && (
+              <div className="bg-green-500/10 backdrop-blur-sm border border-green-500/30 rounded-xl p-4 mb-6">
+                <h3 className="text-base font-semibold text-green-400 mb-3 flex items-center gap-2">
+                  <CheckCircle size={16} /> Concepts You've Mastered (80%+)
+                </h3>
+                <div className="space-y-3">
+                  {paginatedUnderstoodConcepts.map((gap, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                      <div>
+                        <p className="font-medium text-white text-sm capitalize">{gap.concept?.replace(/_/g, ' ')}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">
+                            {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
+                          </span>
+                        </div>
+                      </div>
+                      <CheckCircle size={20} className="text-green-400" />
+                    </div>
+                  ))}
+                </div>
+                {totalUnderstoodPages > 1 && (
+                  <Pagination currentPage={understoodCurrentPage} totalPages={totalUnderstoodPages} onPageChange={setUnderstoodCurrentPage} />
+                )}
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  Showing {paginatedUnderstoodConcepts.length} of {understoodConcepts.length} mastered concepts
+                </div>
+              </div>
+            )}
 
             {/* Primary Gaps Section */}
             {primaryGaps.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 mb-6">
-                <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2">
-                  <AlertCircle size={16} />
-                  High Priority Gaps
-                </h3>
+                <h3 className="text-base font-semibold text-red-400 mb-3 flex items-center gap-2"><AlertCircle size={16} /> High Priority Gaps</h3>
                 <div className="space-y-4">
-                  {primaryGaps.map((gap, idx) => (
+                  {paginatedPrimaryGaps.map((gap, idx) => (
                     <div key={idx} className="border-b border-white/10 pb-4 last:border-0 last:pb-0">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                         <div className="flex-1">
-                          <p className="font-medium text-white text-sm capitalize break-words">
-                            {gap.concept?.replace(/_/g, ' ')}
-                          </p>
+                          <p className="font-medium text-white text-sm capitalize break-words">{gap.concept?.replace(/_/g, ' ')}</p>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             <span className={`text-xs px-2 py-0.5 rounded-full ${getMasteryColor(gap.mastery)}`}>
                               {getMasteryText(gap.mastery)} ({Math.round(gap.mastery)}%)
@@ -420,43 +429,22 @@ export default function StudentGapsPage() {
                           </div>
                         </div>
                         <Link href={`/student/recommendations?concept=${gap.concept}`}>
-                          <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">
-                            Get Resources →
-                          </button>
+                          <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">Get Resources →</button>
                         </Link>
                       </div>
-                      
-                      {gap.specific_errors && gap.specific_errors.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-2 break-words">
-                          • {gap.specific_errors[0]}
-                        </p>
-                      )}
-                      
-                      <button 
-                        onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])}
-                        disabled={explaining[gap.concept]}
-                        className="text-xs text-purple-400 hover:text-purple-300 transition mt-2 flex items-center gap-1"
-                      >
-                        {explaining[gap.concept] ? (
-                          <>
-                            <Loader2 size={10} className="animate-spin" />
-                            Analyzing...
-                          </>
-                        ) : (
-                          <>
-                            <Bot size={10} />
-                            Explain with AI
-                          </>
-                        )}
+                      {gap.specific_errors && gap.specific_errors.length > 0 && (<p className="text-xs text-gray-400 mt-2 break-words">• {gap.specific_errors[0]}</p>)}
+                      <button onClick={() => getAiExplanation(gap.concept, gap.language, gap.specific_errors?.[0])} disabled={explaining[gap.concept]} className="text-xs text-purple-400 hover:text-purple-300 transition mt-2 flex items-center gap-1">
+                        {explaining[gap.concept] ? (<><Loader2 size={10} className="animate-spin" /> Analyzing...</>) : (<><Bot size={10} /> Explain with AI</>)}
                       </button>
-                      
-                      {aiExplanation[gap.concept] && (
-                        <div className="mt-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                          <FormattedAIExplanation content={aiExplanation[gap.concept]} />
-                        </div>
-                      )}
+                      {aiExplanation[gap.concept] && (<div className="mt-2 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20"><FormattedAIExplanation content={aiExplanation[gap.concept]} /></div>)}
                     </div>
                   ))}
+                </div>
+                {totalPrimaryPages > 1 && (
+                  <Pagination currentPage={primaryCurrentPage} totalPages={totalPrimaryPages} onPageChange={setPrimaryCurrentPage} />
+                )}
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  Showing {paginatedPrimaryGaps.length} of {primaryGaps.length} high priority gaps
                 </div>
               </div>
             )}
@@ -464,41 +452,31 @@ export default function StudentGapsPage() {
             {/* Secondary Gaps Section */}
             {secondaryGaps.length > 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-                <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-                  <TrendingDown size={16} />
-                  Improvement Areas
-                </h3>
+                <h3 className="text-base font-semibold text-yellow-400 mb-3 flex items-center gap-2"><TrendingDown size={16} /> Improvement Areas</h3>
                 <div className="space-y-2">
-                  {secondaryGaps.map((gap, idx) => (
+                  {paginatedSecondaryGaps.map((gap, idx) => (
                     <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 py-2 border-b border-white/10 last:border-0">
-                      <div>
-                        <p className="font-medium text-white text-sm capitalize break-words">
-                          {gap.concept?.replace(/_/g, ' ')}
-                        </p>
-                        <span className="text-xs text-gray-400">{Math.round(gap.mastery)}% mastery</span>
-                      </div>
-                      <Link href={`/student/recommendations?concept=${gap.concept}`}>
-                        <button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">
-                          Practice →
-                        </button>
-                      </Link>
+                      <div><p className="font-medium text-white text-sm capitalize break-words">{gap.concept?.replace(/_/g, ' ')}</p><span className="text-xs text-gray-400">{Math.round(gap.mastery)}% mastery</span></div>
+                      <Link href={`/student/recommendations?concept=${gap.concept}`}><button className="text-xs text-blue-400 hover:text-blue-300 transition whitespace-nowrap">Practice →</button></Link>
                     </div>
                   ))}
+                </div>
+                {totalSecondaryPages > 1 && (
+                  <Pagination currentPage={secondaryCurrentPage} totalPages={totalSecondaryPages} onPageChange={setSecondaryCurrentPage} />
+                )}
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  Showing {paginatedSecondaryGaps.length} of {secondaryGaps.length} improvement areas
                 </div>
               </div>
             )}
 
             {/* No Gaps State */}
-            {primaryGaps.length === 0 && secondaryGaps.length === 0 && (
+            {primaryGaps.length === 0 && secondaryGaps.length === 0 && understoodConcepts.length === 0 && (
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl text-center py-8 sm:py-12">
                 <Brain size={40} className="mx-auto text-gray-600 mb-3" />
                 <h3 className="text-base font-medium text-white mb-1">No Gaps Detected</h3>
                 <p className="text-xs text-gray-500 mb-4">Complete a quiz to see your knowledge gaps</p>
-                <Link href="/student/quizzes">
-                  <button className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm hover:bg-blue-500/30 transition">
-                    Take a Quiz
-                  </button>
-                </Link>
+                <Link href="/student/quizzes"><button className="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm hover:bg-blue-500/30 transition">Take a Quiz</button></Link>
               </div>
             )}
           </div>

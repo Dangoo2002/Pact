@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, 
   Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
-  ChevronRight, Send, Copy, Check
+  ChevronRight, Copy, Check
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -61,8 +61,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-// Code Artifact Component
-const CodeArtifact = ({ code, language, onChange, disabled, readOnly }) => {
+// Enhanced Code Artifact Component
+const CodeArtifact = ({ code, language, onChange, disabled, readOnly, placeholder }) => {
   const [copied, setCopied] = useState(false);
   
   const handleCopy = async () => {
@@ -72,15 +72,16 @@ const CodeArtifact = ({ code, language, onChange, disabled, readOnly }) => {
   };
   
   return (
-    <div className="rounded-lg overflow-hidden border border-white/10 bg-black/50">
-      <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10">
+    <div className="rounded-lg overflow-hidden border border-white/10 bg-[#1E1E2E]">
+      <div className="flex items-center justify-between px-3 py-2 bg-[#2D2D3D] border-b border-white/10">
         <div className="flex items-center gap-2">
           <Code size={14} className="text-blue-400" />
-          <span className="text-xs text-gray-400">{language || 'python'}</span>
+          <span className="text-xs text-gray-400 font-mono">{language || 'python'}</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={handleCopy} className="p-1 hover:bg-white/10 rounded transition">
+          <button onClick={handleCopy} className="p-1 hover:bg-white/10 rounded transition flex items-center gap-1">
             {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} className="text-gray-400" />}
+            <span className="text-xs text-gray-400">{copied ? 'Copied!' : 'Copy'}</span>
           </button>
           <div className="flex gap-1">
             <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
@@ -90,7 +91,7 @@ const CodeArtifact = ({ code, language, onChange, disabled, readOnly }) => {
         </div>
       </div>
       {readOnly ? (
-        <pre className="p-3 overflow-x-auto text-xs md:text-sm font-mono text-gray-300 bg-black/50">
+        <pre className="p-3 overflow-x-auto text-xs md:text-sm font-mono text-gray-300 bg-[#1E1E2E] whitespace-pre-wrap break-words">
           <code>{code}</code>
         </pre>
       ) : (
@@ -99,15 +100,20 @@ const CodeArtifact = ({ code, language, onChange, disabled, readOnly }) => {
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           rows={10}
-          className="w-full font-mono text-xs md:text-sm p-3 bg-black/50 text-gray-300 placeholder-gray-600 focus:outline-none resize-y"
-          placeholder='def solution():
-    # Write your code here
-    pass'
+          className="w-full font-mono text-xs md:text-sm p-3 bg-[#1E1E2E] text-gray-300 placeholder-gray-500 focus:outline-none resize-y"
+          placeholder={placeholder || 'def solution():\n    # Write your code here\n    pass'}
           spellCheck={false}
         />
       )}
     </div>
   );
+};
+
+// Helper function to extract code from markdown code blocks
+const extractCodeFromText = (text) => {
+  if (!text) return '';
+  const match = text.match(/```(?:\w+)?\n([\s\S]*?)```/);
+  return match ? match[1].trim() : '';
 };
 
 // Quiz Skeleton Loader
@@ -164,7 +170,6 @@ export default function QuizPage() {
   const [quizConcept, setQuizConcept] = useState('');
   const [quizLanguage, setQuizLanguage] = useState('');
 
-  // Auth check
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
@@ -252,7 +257,7 @@ export default function QuizPage() {
           concept: currentQuestion.concept || quizConcept || 'programming',
           language: currentQuestion.language || quizLanguage || 'python',
           errorMessage: `Student needs help with: ${currentQuestion.text}`,
-          codeContext: currentQuestion.code_snippet || null
+          codeContext: currentQuestion.code_snippet || currentQuestion.starter_code || null
         })
       });
       const data = await response.json();
@@ -265,7 +270,28 @@ export default function QuizPage() {
   };
 
   const handleAnswerSubmit = async () => {
-    if ((!selectedAnswer && !codeAnswer) || submitting) return;
+    if (submitting) return;
+    
+    // Check if answer is provided based on question type
+    if (currentQuestion?.type === 'coding') {
+      if (!codeAnswer.trim()) {
+        setFeedback({
+          isCorrect: false,
+          explanation: "Please write your solution in the code editor before submitting.",
+          correctAnswer: null
+        });
+        return;
+      }
+    } else {
+      if (!selectedAnswer) {
+        setFeedback({
+          isCorrect: false,
+          explanation: "Please select an answer before submitting.",
+          correctAnswer: null
+        });
+        return;
+      }
+    }
     
     setSubmitting(true);
     setAiHint(null);
@@ -286,27 +312,23 @@ export default function QuizPage() {
       
       const result = await response.json();
       
-      const isCorrect = result.is_correct;
-      const explanation = result.explanation;
-      const correctAnswer = result.correct_answer;
-      
       setFeedback({
-        isCorrect: isCorrect,
-        explanation: explanation,
-        correctAnswer: correctAnswer
+        isCorrect: result.is_correct,
+        explanation: result.explanation,
+        correctAnswer: result.correct_answer
       });
       
       const newAnswers = [...allAnswers, {
         questionId: currentQuestion?.id,
         question: currentQuestion?.text,
         answer: selectedAnswer || codeAnswer,
-        isCorrect: isCorrect,
+        isCorrect: result.is_correct,
         correct_answer: currentQuestion?.correct_answer,
-        feedback: explanation
+        feedback: result.explanation
       }];
       setAllAnswers(newAnswers);
       
-      const newScore = score + (isCorrect ? 1 : 0);
+      const newScore = score + (result.is_correct ? 1 : 0);
       const newQuestionsAnswered = questionsAnswered + 1;
       
       setScore(newScore);
@@ -410,9 +432,7 @@ export default function QuizPage() {
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="/student" className="w-full sm:w-auto">
-                  <button className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-sm">
-                    Dashboard
-                  </button>
+                  <button className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition text-sm">Dashboard</button>
                 </Link>
                 <Link href={`/student/recommendations?sessionId=${sessionId}`} className="w-full sm:w-auto">
                   <button className="w-full px-4 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm flex items-center justify-center gap-2">
@@ -431,12 +451,14 @@ export default function QuizPage() {
     return <QuizSkeleton />;
   }
 
-  const isCodeQuestion = currentQuestion?.type === 'code_writing' || currentQuestion?.code_required || currentQuestion?.code_snippet;
+  // Determine if this is a coding question (type === 'coding')
+  const isCodingQuestion = currentQuestion?.type === 'coding';
   const progressPercentage = (questionsAnswered / totalQuestions) * 100;
   const displayScore = score;
-
-  // Display the timer correctly - ensures "1:30" shows properly
   const displayTime = formatTime(timeLeft);
+  
+  // Get starter code for coding questions
+  const starterCode = currentQuestion?.starter_code || currentQuestion?.code_snippet || null;
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
@@ -447,9 +469,7 @@ export default function QuizPage() {
         {/* Header with timer */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
-            </button>
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10"><Menu size={20} /></button>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full">
                 <Clock size={14} className="text-blue-400" />
@@ -472,30 +492,22 @@ export default function QuizPage() {
                     {quizConcept?.replace(/_/g, ' ')} • {quizLanguage}
                   </span>
                 </div>
-                <button 
-                  onClick={getAiHint} 
-                  disabled={gettingHint || feedback !== null} 
-                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50"
-                >
-                  {gettingHint ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
-                  {gettingHint ? 'Getting hint...' : 'Get AI Hint'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${isCodingQuestion ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                    {isCodingQuestion ? 'Coding Challenge' : 'Multiple Choice'}
+                  </span>
+                  <button 
+                    onClick={getAiHint} 
+                    disabled={gettingHint || feedback !== null} 
+                    className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 transition disabled:opacity-50"
+                  >
+                    {gettingHint ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
+                    {gettingHint ? 'Getting hint...' : 'Get AI Hint'}
+                  </button>
+                </div>
               </div>
 
-              {/* Display code snippet if present in question */}
-              {currentQuestion?.code_snippet && (
-                <div className="mb-4">
-                  <div className="text-xs text-gray-400 mb-2">Reference Code:</div>
-                  <CodeArtifact
-                    code={currentQuestion.code_snippet}
-                    language={quizLanguage}
-                    onChange={() => {}}
-                    disabled={true}
-                    readOnly={true}
-                  />
-                </div>
-              )}
-
+              {/* Question Text */}
               <h3 className="text-sm md:text-lg font-medium text-white mb-4 md:mb-6 leading-relaxed">
                 {currentQuestion?.text}
               </h3>
@@ -511,7 +523,7 @@ export default function QuizPage() {
               )}
 
               {/* Multiple Choice Options */}
-              {!isCodeQuestion && currentQuestion?.options && (
+              {!isCodingQuestion && currentQuestion?.options && (
                 <div className="space-y-2 md:space-y-3 mb-6">
                   {currentQuestion.options.map((option, idx) => (
                     <label 
@@ -535,20 +547,46 @@ export default function QuizPage() {
                 </div>
               )}
 
-              {/* Code Artifact for code questions (student writes code) */}
-              {isCodeQuestion && (
+              {/* Coding Question Area */}
+              {isCodingQuestion && (
                 <div className="mb-6">
-                  <div className="text-xs text-gray-400 mb-2">Write your solution below:</div>
+                  {starterCode && (
+                    <div className="mb-4">
+                      <div className="text-xs text-gray-400 mb-2 flex items-center gap-2">
+                        <Code size={12} className="text-blue-400" />
+                        <span>Starter Code:</span>
+                      </div>
+                      <CodeArtifact
+                        code={starterCode}
+                        language={quizLanguage}
+                        onChange={() => {}}
+                        disabled={true}
+                        readOnly={true}
+                      />
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-400 mb-2">Your Solution:</div>
                   <CodeArtifact
                     code={codeAnswer}
                     language={quizLanguage}
                     onChange={setCodeAnswer}
                     disabled={feedback !== null}
+                    placeholder={starterCode || `def solution():\n    # Write your code here\n    pass`}
                   />
+                  {currentQuestion?.hints && currentQuestion.hints.length > 0 && !feedback && (
+                    <div className="mt-3 p-2 rounded bg-blue-500/10 border border-blue-500/20">
+                      <p className="text-xs text-blue-400 mb-1">💡 Hints:</p>
+                      <ul className="text-xs text-gray-400 space-y-1">
+                        {currentQuestion.hints.slice(0, 2).map((hint, i) => (
+                          <li key={i}>• {hint}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Feedback Section - Enhanced with correct answer display */}
+              {/* Feedback Section */}
               {feedback && (
                 <div className={`p-3 md:p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                   <div className="flex items-start gap-2">
@@ -562,10 +600,10 @@ export default function QuizPage() {
                         {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
                       </p>
                       <p className="text-xs md:text-sm text-gray-300 leading-relaxed">{feedback.explanation}</p>
-                      {!feedback.isCorrect && (feedback.correctAnswer || currentQuestion?.correct_answer) && (
+                      {!feedback.isCorrect && feedback.correctAnswer && (
                         <div className="mt-2 pt-2 border-t border-gray-700/50">
                           <p className="text-xs text-blue-400">
-                            <span className="font-semibold">Correct answer:</span> {feedback.correctAnswer || currentQuestion?.correct_answer}
+                            <span className="font-semibold">Expected solution:</span> {feedback.correctAnswer}
                           </p>
                         </div>
                       )}
@@ -577,7 +615,7 @@ export default function QuizPage() {
               {/* Submit Button */}
               <button 
                 onClick={handleAnswerSubmit} 
-                disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
+                disabled={(!selectedAnswer && !codeAnswer && !isCodingQuestion) || submitting || feedback !== null} 
                 className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 size={14} className="animate-spin" />}

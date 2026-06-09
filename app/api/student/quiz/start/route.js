@@ -1,4 +1,4 @@
-// app/api/student/quiz/start/route.js - Updated to ensure correct answers are stored properly
+// app/api/student/quiz/start/route.js
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { query } from '@/lib/db';
@@ -11,6 +11,10 @@ export async function POST(request) {
     }
 
     const { studentId, concept, language } = await request.json();
+
+    if (!studentId || !concept || !language) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
 
     // Get student's previous performance
     const previousResponses = await query(`
@@ -31,34 +35,43 @@ export async function POST(request) {
     else if (accuracy >= 60) adaptiveDifficulty = 2;
     else adaptiveDifficulty = 1;
 
+    // Extract weak topics
     const weakTopics = previousResponses.rows
       .filter(r => !r.is_correct)
-      .map(r => r.question_text?.substring(0, 50) || concept)
+      .map(r => r.question_text?.substring(0, 60) || concept)
+      .filter((v, i, a) => a.indexOf(v) === i)
       .slice(0, 5);
 
-    // Generate questions with verified answers
-    const questions = await generateQuestionsWithVerifiedAnswers(concept, language, adaptiveDifficulty, weakTopics);
+    // Generate questions - 4 multiple choice + 1 coding
+    const questions = await generateQuizQuestions(concept, language, adaptiveDifficulty, weakTopics);
 
     const sessionId = `session_${Date.now()}_${studentId}`;
     const studentIdStr = String(studentId);
     
+    // REMOVED 'adaptive_level' column since it doesn't exist
     await query(`
-      INSERT INTO quiz_sessions (session_id, student_id, concept, language, total_questions, started_at, status, current_question_index, score, difficulty_level, weak_focus)
+      INSERT INTO quiz_sessions (
+        session_id, student_id, concept, language, total_questions, 
+        started_at, status, current_question_index, score, 
+        difficulty_level, weak_focus
+      )
       VALUES ($1, $2, $3, $4, $5, NOW(), 'active', $6, $7, $8, $9)
     `, [sessionId, studentIdStr, concept, language, questions.length, 0, 0, adaptiveDifficulty, JSON.stringify(weakTopics)]);
 
     const formattedQuestions = questions.map((q, idx) => ({
       id: idx,
       text: q.question_text,
-      options: q.options,
+      options: q.options || null,
       correct_answer: q.correct_answer,
       explanation: q.explanation,
-      type: q.type || 'multiple_choice',
+      type: q.type,
       concept: concept,
       language: language,
       difficulty: q.difficulty,
       topic: q.topic,
-      code_snippet: q.code_snippet || null
+      starter_code: q.starter_code || null,
+      test_cases: q.test_cases || null,
+      hints: q.hints || []
     }));
 
     return NextResponse.json({
@@ -68,6 +81,8 @@ export async function POST(request) {
       all_questions: formattedQuestions,
       time_limit: 90,
       adaptive_level: adaptiveDifficulty,
+      weak_focus: weakTopics,
+      accuracy: Math.round(accuracy),
       message: `Quiz generated for ${language}`
     });
   } catch (error) {
@@ -76,34 +91,64 @@ export async function POST(request) {
   }
 }
 
-async function generateQuestionsWithVerifiedAnswers(concept, language, difficultyLevel, weakTopics) {
+async function generateQuizQuestions(concept, language, difficultyLevel, weakTopics) {
   const languageDisplay = language === 'cpp' ? 'C++' : language === 'js' ? 'JavaScript' : language.charAt(0).toUpperCase() + language.slice(1);
   
-  const prompt = `Generate 5 multiple-choice questions about "${concept}" in ${languageDisplay} programming.
+  const prompt = `Generate a quiz about "${concept}" in ${languageDisplay} programming.
 
-IMPORTANT RULES:
-1. Each question MUST have ONE clearly correct answer
-2. All options must be plausible but only one is correct
-3. The correct_answer field must EXACTLY match one of the options
-4. Difficulty distribution: ${difficultyLevel === 1 ? '3 easy, 2 medium' : difficultyLevel === 2 ? '2 easy, 2 medium, 1 hard' : '1 easy, 2 medium, 2 hard'}
-5. Focus areas: ${weakTopics.length > 0 ? weakTopics.slice(0, 3).join(', ') : 'core concepts'}
+Generate exactly 5 questions:
+- Questions 1-4: Multiple choice questions
+- Question 5: Coding question
 
-Return ONLY valid JSON array. Example format:
-[
-  {
-    "question_text": "What is the correct way to declare a variable in ${languageDisplay}?",
-    "options": ["var x = 5;", "let x = 5;", "int x = 5;", "x = 5;"],
-    "correct_answer": "let x = 5;",
-    "explanation": "In ${languageDisplay}, 'let' is the modern way to declare variables with block scope.",
-    "difficulty": 1,
-    "topic": "${concept} basics",
-    "type": "multiple_choice"
-  }
-]
+For multiple choice questions, provide:
+- question_text: The question
+- options: Array of 4 strings
+- correct_answer: Exact string matching one option
+- explanation: Brief explanation
+- difficulty: 1 (easy), 2 (medium), or 3 (hard)
 
-Generate 5 questions. Ensure correct_answer exactly matches one of the options strings.`;
+For the coding question, provide:
+- question_text: Problem description
+- starter_code: Template code
+- correct_answer: Expected solution
+- explanation: Solution approach
+- test_cases: Array of {input, expected}
+- hints: Array of hint strings
+- difficulty: 2 (medium) or 3 (hard)
+
+Difficulty distribution: ${difficultyLevel === 1 ? '3 easy, 1 medium for multiple choice, 1 easy coding' : difficultyLevel === 2 ? '2 easy, 2 medium for multiple choice, 1 medium coding' : '1 easy, 2 medium, 1 hard for multiple choice, 1 hard coding'}
+
+Focus areas: ${weakTopics.length > 0 ? weakTopics.slice(0, 3).join(', ') : 'core ' + concept + ' concepts'}
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "type": "multiple_choice",
+      "question_text": "Question text here",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_answer": "Option A",
+      "explanation": "Why this is correct",
+      "difficulty": 1,
+      "topic": "topic name"
+    },
+    {
+      "type": "coding",
+      "question_text": "Problem description",
+      "starter_code": "def solution():\n    pass",
+      "correct_answer": "def solution():\n    return result",
+      "explanation": "Solution approach",
+      "test_cases": [{"input": "test", "expected": "expected"}],
+      "hints": ["Hint 1", "Hint 2"],
+      "difficulty": 2,
+      "topic": "topic name"
+    }
+  ]
+}`;
 
   try {
+    console.log(`Generating quiz for ${concept} (difficulty: ${difficultyLevel})`);
+    
     const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -115,104 +160,138 @@ Generate 5 questions. Ensure correct_answer exactly matches one of the options s
         messages: [
           {
             role: 'system',
-            content: 'You are an expert programmer creating accurate quiz questions. Each question must have ONE correct answer that exactly matches an option. Return ONLY valid JSON array. No extra text.'
+            content: 'You are an expert quiz generator. Generate exactly 5 questions: 4 multiple choice + 1 coding. Each multiple choice question must have exactly 4 options with one correct answer. Return ONLY valid JSON. No extra text.'
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.3,
+        temperature: 0.4,
         max_tokens: 4000
       })
     });
 
-    if (!aiResponse.ok) throw new Error(`AI API error: ${aiResponse.status}`);
+    if (!aiResponse.ok) {
+      throw new Error(`AI API error: ${aiResponse.status}`);
+    }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices[0].message.content;
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    const content = aiData.choices[0]?.message?.content;
     
-    if (jsonMatch) {
-      const questions = JSON.parse(jsonMatch[0]);
-      // Validate each question has correct_answer that matches an option
-      for (const q of questions) {
-        if (!q.options.includes(q.correct_answer)) {
-          console.warn('Correct answer not in options, fixing...', q);
-          // Fix by setting correct_answer to first option (fallback)
-          q.correct_answer = q.options[0];
-        }
-      }
-      if (questions.length === 5) return questions;
+    if (!content) throw new Error('Empty AI response');
+    
+    // Extract JSON
+    let jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON found in response');
+    
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      const cleaned = jsonMatch[0].replace(/```json/g, '').replace(/```/g, '').trim();
+      parsed = JSON.parse(cleaned);
     }
     
-    throw new Error('Invalid AI response');
+    let questions = parsed.questions || [];
+    
+    if (!Array.isArray(questions) || questions.length !== 5) {
+      console.log(`Expected 5 questions, got ${questions.length}. Using fallback.`);
+      return getFallbackQuestions(concept, languageDisplay, difficultyLevel);
+    }
+    
+    // Validate and fix each question
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      
+      if (i < 4) {
+        // Multiple choice questions
+        q.type = 'multiple_choice';
+        if (!q.options || q.options.length !== 4) {
+          q.options = [`Option A`, `Option B`, `Option C`, `Option D`];
+        }
+        if (!q.correct_answer || !q.options.includes(q.correct_answer)) {
+          q.correct_answer = q.options[0];
+        }
+        if (!q.explanation) q.explanation = `The correct answer is ${q.correct_answer}.`;
+        if (!q.difficulty) q.difficulty = i < 2 ? 1 : i < 3 ? 2 : 3;
+      } else {
+        // Coding question
+        q.type = 'coding';
+        if (!q.starter_code) {
+          q.starter_code = language === 'python' 
+            ? `def solution():\n    # Write your code here\n    pass`
+            : `function solution() {\n    // Write your code here\n}`;
+        }
+        if (!q.test_cases) q.test_cases = [{ input: "sample", expected: "expected output" }];
+        if (!q.hints) q.hints = ["Think step by step", "Test your solution"];
+        if (!q.difficulty) q.difficulty = 2;
+      }
+      
+      q.topic = q.topic || concept;
+    }
+    
+    console.log(`Successfully generated ${questions.length} questions`);
+    return questions;
+    
   } catch (error) {
-    console.error('AI generation failed, using fallback:', error);
-    return generateVerifiedFallbackQuestions(concept, languageDisplay, difficultyLevel);
+    console.error('AI generation failed:', error);
+    return getFallbackQuestions(concept, languageDisplay, difficultyLevel);
   }
 }
 
-function generateVerifiedFallbackQuestions(concept, language, difficultyLevel) {
-  const questions = [];
+function getFallbackQuestions(concept, language, difficultyLevel) {
   const conceptLower = concept.toLowerCase();
   
-  // Pre-verified correct answers
-  const verifiedQuestions = {
-    variables: [
-      { text: `How do you declare a variable named 'count' with value 10 in ${language}?`, options: [`count = 10`, `var count = 10`, `let count = 10`, `int count = 10`], correct: `let count = 10`, explanation: `In ${language}, 'let' is used for variable declaration with block scope.` },
-      { text: `Which symbol is used for variable assignment in ${language}?`, options: [`=`, `==`, `===`, `:=`], correct: `=`, explanation: `The equals sign = is the assignment operator in ${language}.` }
-    ],
-    loops: [
-      { text: `Which loop is guaranteed to execute at least once in ${language}?`, options: [`for`, `while`, `do-while`, `foreach`], correct: `do-while`, explanation: `A do-while loop executes the code block once before checking the condition.` },
-      { text: `What is the output of: for(i=0;i<3;i++){ console.log(i); } in ${language}?`, options: [`0,1,2`, `1,2,3`, `0,1,2,3`, `1,2`], correct: `0,1,2`, explanation: `The loop runs for i=0,1,2 and stops when i=3.` }
-    ],
-    functions: [
-      { text: `What keyword is used to define a function in ${language}?`, options: [`function`, `def`, `func`, `define`], correct: `function`, explanation: `In ${language}, 'function' is the keyword used to declare a function.` }
-    ]
-  };
-
-  const defaultQuestions = [
+  return [
     {
-      question_text: `What is the correct way to work with ${conceptLower} in ${language}?`,
-      options: [`Use ${conceptLower} correctly`, `Avoid ${conceptLower}`, `Define ${conceptLower} first`, `Import ${conceptLower} module`],
-      correct_answer: `Use ${conceptLower} correctly`,
-      explanation: `Understanding ${conceptLower} is fundamental to programming in ${language}.`,
+      type: "multiple_choice",
+      question_text: `What is the correct way to declare a variable in ${language}?`,
+      options: [`let x = 5;`, `var x = 5;`, `const x = 5;`, `x = 5;`],
+      correct_answer: `let x = 5;`,
+      explanation: `In ${language}, 'let' is the preferred way to declare variables with block scope.`,
       difficulty: 1,
-      topic: `${conceptLower} basics`,
-      type: 'multiple_choice'
+      topic: `${conceptLower} variables`
     },
     {
-      question_text: `Which of the following best describes ${conceptLower} in ${language}?`,
-      options: [`A way to store data`, `A control flow statement`, `A function declaration`, `An error handling mechanism`],
-      correct_answer: `A way to store data`,
-      explanation: `${conceptLower} is used to store and manage data in ${language}.`,
+      type: "multiple_choice",
+      question_text: `Which operator is used for strict equality in ${language}?`,
+      options: [`==`, `=`, `===`, `!=`],
+      correct_answer: `===`,
+      explanation: `The === operator checks both value and type for equality.`,
       difficulty: 1,
-      topic: `${conceptLower} concepts`,
-      type: 'multiple_choice'
+      topic: `${conceptLower} operators`
+    },
+    {
+      type: "multiple_choice",
+      question_text: `What is the output of: console.log(typeof []) in JavaScript?`,
+      options: [`"array"`, `"object"`, `"Array"`, `"undefined"`],
+      correct_answer: `"object"`,
+      explanation: `In JavaScript, arrays are a type of object.`,
+      difficulty: 2,
+      topic: `${conceptLower} data types`
+    },
+    {
+      type: "multiple_choice",
+      question_text: `Which loop executes at least once in ${language}?`,
+      options: [`for`, `while`, `do-while`, `forEach`],
+      correct_answer: `do-while`,
+      explanation: `A do-while loop executes the code block once before checking the condition.`,
+      difficulty: 2,
+      topic: `${conceptLower} loops`
+    },
+    {
+      type: "coding",
+      question_text: `Write a function that takes an array of numbers and returns the sum of all even numbers.`,
+      starter_code: language === 'python' 
+        ? `def sum_even_numbers(numbers):\n    # Your code here\n    pass`
+        : `function sumEvenNumbers(numbers) {\n    // Your code here\n}`,
+      correct_answer: `function sumEvenNumbers(numbers) {\n    return numbers.filter(n => n % 2 === 0).reduce((a, b) => a + b, 0);\n}`,
+      explanation: `Filter the array to keep even numbers, then sum them using reduce.`,
+      test_cases: [
+        { input: "[1, 2, 3, 4]", expected: "6" },
+        { input: "[2, 4, 6, 8]", expected: "20" }
+      ],
+      hints: ["Use the modulo operator % to check if a number is even", "Filter the array first, then sum"],
+      difficulty: 2,
+      topic: `${conceptLower} arrays`
     }
   ];
-
-  // Use concept-specific verified questions if available
-  const conceptQuestions = verifiedQuestions[conceptLower];
-  if (conceptQuestions) {
-    for (let i = 0; i < Math.min(conceptQuestions.length, 5); i++) {
-      const q = conceptQuestions[i % conceptQuestions.length];
-      questions.push({
-        question_text: q.text,
-        options: q.options,
-        correct_answer: q.correct,
-        explanation: q.explanation,
-        difficulty: i < 2 ? 1 : i < 4 ? 2 : 3,
-        topic: conceptLower,
-        type: 'multiple_choice'
-      });
-    }
-  }
-  
-  // Fill remaining with defaults
-  while (questions.length < 5) {
-    const defaultQ = { ...defaultQuestions[questions.length % defaultQuestions.length] };
-    defaultQ.difficulty = questions.length < 2 ? 1 : questions.length < 4 ? 2 : 3;
-    questions.push(defaultQ);
-  }
-  
-  return questions;
 }
