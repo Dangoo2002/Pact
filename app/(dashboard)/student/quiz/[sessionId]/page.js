@@ -1,3 +1,4 @@
+// app/student/quiz/[sessionId]/page.jsx
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -7,7 +8,7 @@ import Link from 'next/link';
 import { 
   Code, Clock, CheckCircle, XCircle, Loader2, 
   Menu, User, LogOut, Bell, Sparkles, Bot, LayoutDashboard, Target, BookOpen, Save,
-  ChevronRight
+  ChevronRight, Send, Copy, Check
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -60,6 +61,55 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
+// Code Artifact Component
+const CodeArtifact = ({ code, language, onChange, disabled, readOnly }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  return (
+    <div className="rounded-lg overflow-hidden border border-white/10 bg-black/50">
+      <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <Code size={14} className="text-blue-400" />
+          <span className="text-xs text-gray-400">{language || 'python'}</span>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleCopy} className="p-1 hover:bg-white/10 rounded transition">
+            {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} className="text-gray-400" />}
+          </button>
+          <div className="flex gap-1">
+            <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
+            <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
+            <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
+          </div>
+        </div>
+      </div>
+      {readOnly ? (
+        <pre className="p-3 overflow-x-auto text-xs md:text-sm font-mono text-gray-300 bg-black/50">
+          <code>{code}</code>
+        </pre>
+      ) : (
+        <textarea
+          value={code}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          rows={10}
+          className="w-full font-mono text-xs md:text-sm p-3 bg-black/50 text-gray-300 placeholder-gray-600 focus:outline-none resize-y"
+          placeholder='def solution():
+    # Write your code here
+    pass'
+          spellCheck={false}
+        />
+      )}
+    </div>
+  );
+};
+
 // Quiz Skeleton Loader
 const QuizSkeleton = () => (
   <div className="min-h-screen bg-[#0A1628]">
@@ -86,46 +136,6 @@ const QuizSkeleton = () => (
   </div>
 );
 
-// Format AI explanation without markdown
-const formatAIExplanation = (text) => {
-  if (!text) return '';
-  return text
-    .replace(/\*\*/g, '')
-    .replace(/\*/g, '')
-    .replace(/`/g, '')
-    .replace(/#{1,6}\s/g, '');
-};
-
-// Code Artifact Component
-const CodeArtifact = ({ code, language, onChange, disabled }) => {
-  return (
-    <div className="rounded-lg overflow-hidden border border-white/10 bg-black/50">
-      <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <Code size={14} className="text-blue-400" />
-          <span className="text-xs text-gray-400">{language || 'python'}</span>
-        </div>
-        <div className="flex gap-1">
-          <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
-          <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
-          <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
-        </div>
-      </div>
-      <textarea
-        value={code}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        rows={8}
-        className="w-full font-mono text-xs md:text-sm p-3 bg-black/50 text-gray-300 placeholder-gray-600 focus:outline-none resize-y"
-        placeholder='def solution():
-    # Write your code here
-    pass'
-        spellCheck={false}
-      />
-    </div>
-  );
-};
-
 export default function QuizPage() {
   const { data: session, status } = useSession();
   const params = useParams();
@@ -145,7 +155,7 @@ export default function QuizPage() {
   const [questionsAnswered, setQuestionsAnswered] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [quizCompleted, setQuizCompleted] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300);
+  const [timeLeft, setTimeLeft] = useState(90);
   const [aiHint, setAiHint] = useState(null);
   const [gettingHint, setGettingHint] = useState(false);
   const [allAnswers, setAllAnswers] = useState([]);
@@ -178,7 +188,7 @@ export default function QuizPage() {
         setScore(data.score || 0);
         setQuestionsAnswered(data.questions_answered || 0);
         setCurrentQuestionIndex(data.questions_answered || 0);
-        setTimeLeft(data.time_left || 300);
+        setTimeLeft(data.time_left || 90);
         setQuizConcept(data.concept || data.all_questions?.[0]?.concept || 'general');
         setQuizLanguage(data.language || data.all_questions?.[0]?.language || 'python');
         setAllAnswers(data.answers || []);
@@ -190,7 +200,6 @@ export default function QuizPage() {
     }
   };
 
-  // Save quiz progress to sessionStorage
   const saveQuizProgress = (updatedScore, updatedQuestionsAnswered, updatedCurrentQuestion, updatedAllAnswers) => {
     try {
       const quizData = {
@@ -210,7 +219,7 @@ export default function QuizPage() {
     }
   };
 
-  // Timer
+  // Timer - 90 seconds (1 minute 30 seconds)
   useEffect(() => {
     if (quizCompleted || loading || !currentQuestion) return;
     const timer = setInterval(() => {
@@ -240,13 +249,14 @@ export default function QuizPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          concept: currentQuestion.concept || 'programming',
-          language: currentQuestion.language || 'python',
-          errorMessage: `Student needs help with: ${currentQuestion.text}`
+          concept: currentQuestion.concept || quizConcept || 'programming',
+          language: currentQuestion.language || quizLanguage || 'python',
+          errorMessage: `Student needs help with: ${currentQuestion.text}`,
+          codeContext: currentQuestion.code_snippet || null
         })
       });
       const data = await response.json();
-      setAiHint(formatAIExplanation(data.explanation || "Think about the definition carefully."));
+      setAiHint(data.explanation || "Think about the definition carefully. Review the concept and try again.");
     } catch (error) {
       setAiHint("Think about the concept carefully. Review the basics and try again.");
     } finally {
@@ -277,11 +287,13 @@ export default function QuizPage() {
       const result = await response.json();
       
       const isCorrect = result.is_correct;
-      const explanation = formatAIExplanation(result.explanation);
+      const explanation = result.explanation;
+      const correctAnswer = result.correct_answer;
       
       setFeedback({
         isCorrect: isCorrect,
-        explanation: explanation
+        explanation: explanation,
+        correctAnswer: correctAnswer
       });
       
       const newAnswers = [...allAnswers, {
@@ -289,7 +301,8 @@ export default function QuizPage() {
         question: currentQuestion?.text,
         answer: selectedAnswer || codeAnswer,
         isCorrect: isCorrect,
-        correct_answer: currentQuestion?.correct_answer
+        correct_answer: currentQuestion?.correct_answer,
+        feedback: explanation
       }];
       setAllAnswers(newAnswers);
       
@@ -303,7 +316,6 @@ export default function QuizPage() {
         setQuizCompleted(true);
         setSubmitting(false);
       } else if (result.next_question) {
-        // Save progress before moving to next question
         saveQuizProgress(newScore, newQuestionsAnswered, result.next_question, newAnswers);
         
         setTimeout(() => {
@@ -313,7 +325,7 @@ export default function QuizPage() {
           setCodeAnswer('');
           setFeedback(null);
           setSubmitting(false);
-        }, 1500);
+        }, 2000);
       } else {
         setSubmitting(false);
       }
@@ -380,7 +392,7 @@ export default function QuizPage() {
 
               {!savedToDatabase ? (
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-6">
-                  <p className="text-sm text-blue-400 mb-3">Save & Analyze</p>
+                  <p className="text-sm text-blue-400 mb-3">Save & Analyze Your Results</p>
                   <button
                     onClick={handleSaveAndAnalyze}
                     disabled={isSaving}
@@ -392,7 +404,7 @@ export default function QuizPage() {
                 </div>
               ) : (
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-6">
-                  <p className="text-sm text-green-400 text-center">Analysis complete! Check your recommendations.</p>
+                  <p className="text-sm text-green-400 text-center">Analysis complete! Your recommendations are ready.</p>
                 </div>
               )}
 
@@ -419,10 +431,12 @@ export default function QuizPage() {
     return <QuizSkeleton />;
   }
 
-  const isCodeQuestion = currentQuestion?.type === 'code_writing' || currentQuestion?.code_required;
-  const progressPercentage = ((questionsAnswered + (feedback ? 1 : 0)) / totalQuestions) * 100;
-  const displayQuestionNumber = questionsAnswered + (feedback ? 1 : 0);
-  const displayScore = score + (feedback?.isCorrect ? 0 : 0);
+  const isCodeQuestion = currentQuestion?.type === 'code_writing' || currentQuestion?.code_required || currentQuestion?.code_snippet;
+  const progressPercentage = (questionsAnswered / totalQuestions) * 100;
+  const displayScore = score;
+
+  // Display the timer correctly - ensures "1:30" shows properly
+  const displayTime = formatTime(timeLeft);
 
   return (
     <div className="min-h-screen bg-[#0A1628] text-white relative">
@@ -430,17 +444,17 @@ export default function QuizPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       <div className="md:ml-64">
-        {/* Header with timer only */}
+        {/* Header with timer */}
         <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
               <Menu size={20} />
             </button>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Clock size={14} className="md:text-[16px] text-blue-400" />
-                <span className={`font-mono text-sm md:text-base ${timeLeft < 60 ? 'text-red-400 animate-pulse' : 'text-gray-300'}`}>
-                  {formatTime(timeLeft)}
+              <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full">
+                <Clock size={14} className="text-blue-400" />
+                <span className={`font-mono text-sm md:text-base font-medium ${timeLeft < 30 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                  {displayTime}
                 </span>
               </div>
             </div>
@@ -453,7 +467,7 @@ export default function QuizPage() {
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 md:p-6">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Code size={16} className="md:text-[18px] text-blue-400" />
+                  <Code size={16} className="text-blue-400" />
                   <span className="text-xs md:text-sm font-medium text-gray-300">
                     {quizConcept?.replace(/_/g, ' ')} • {quizLanguage}
                   </span>
@@ -468,12 +482,31 @@ export default function QuizPage() {
                 </button>
               </div>
 
-              <h3 className="text-sm md:text-lg font-medium text-white mb-4 md:mb-6">{currentQuestion?.text}</h3>
+              {/* Display code snippet if present in question */}
+              {currentQuestion?.code_snippet && (
+                <div className="mb-4">
+                  <div className="text-xs text-gray-400 mb-2">Reference Code:</div>
+                  <CodeArtifact
+                    code={currentQuestion.code_snippet}
+                    language={quizLanguage}
+                    onChange={() => {}}
+                    disabled={true}
+                    readOnly={true}
+                  />
+                </div>
+              )}
+
+              <h3 className="text-sm md:text-lg font-medium text-white mb-4 md:mb-6 leading-relaxed">
+                {currentQuestion?.text}
+              </h3>
 
               {/* AI Hint */}
               {aiHint && (
                 <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                  <p className="text-xs md:text-sm text-purple-300">{aiHint}</p>
+                  <div className="flex items-start gap-2">
+                    <Bot size={14} className="text-purple-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs md:text-sm text-purple-300 leading-relaxed">{aiHint}</p>
+                  </div>
                 </div>
               )}
 
@@ -502,9 +535,10 @@ export default function QuizPage() {
                 </div>
               )}
 
-              {/* Code Artifact for code questions */}
+              {/* Code Artifact for code questions (student writes code) */}
               {isCodeQuestion && (
                 <div className="mb-6">
+                  <div className="text-xs text-gray-400 mb-2">Write your solution below:</div>
                   <CodeArtifact
                     code={codeAnswer}
                     language={quizLanguage}
@@ -514,13 +548,29 @@ export default function QuizPage() {
                 </div>
               )}
 
-              {/* Feedback */}
+              {/* Feedback Section - Enhanced with correct answer display */}
               {feedback && (
                 <div className={`p-3 md:p-4 rounded-lg mb-4 ${feedback.isCorrect ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                  <p className={`text-xs md:text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
-                    {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
-                  </p>
-                  <p className="text-xs md:text-sm text-gray-400">{feedback.explanation}</p>
+                  <div className="flex items-start gap-2">
+                    {feedback.isCorrect ? (
+                      <CheckCircle size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <XCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`text-xs md:text-sm font-medium mb-1 ${feedback.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                        {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
+                      </p>
+                      <p className="text-xs md:text-sm text-gray-300 leading-relaxed">{feedback.explanation}</p>
+                      {!feedback.isCorrect && (feedback.correctAnswer || currentQuestion?.correct_answer) && (
+                        <div className="mt-2 pt-2 border-t border-gray-700/50">
+                          <p className="text-xs text-blue-400">
+                            <span className="font-semibold">Correct answer:</span> {feedback.correctAnswer || currentQuestion?.correct_answer}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -530,22 +580,22 @@ export default function QuizPage() {
                 disabled={(!selectedAnswer && !codeAnswer) || submitting || feedback !== null} 
                 className="w-full py-2 md:py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 text-sm font-medium flex items-center justify-center gap-2"
               >
-                {submitting && <Loader2 size={14} className="md:text-[16px] animate-spin" />}
+                {submitting && <Loader2 size={14} className="animate-spin" />}
                 {submitting ? 'Processing...' : feedback ? 'Next Question' : 'Submit Answer'}
-                {!submitting && feedback && <ChevronRight size={14} className="md:text-[16px]" />}
+                {!submitting && feedback && <ChevronRight size={14} />}
               </button>
             </div>
 
-            {/* Progress Bar - Shows REAL-TIME progress */}
+            {/* Progress Bar */}
             <div className="mt-4 md:mt-6 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-3 md:p-4">
               <div className="flex justify-between text-xs md:text-sm text-gray-400 mb-2">
-                <span>Question {Math.min(displayQuestionNumber, totalQuestions)} of {totalQuestions}</span>
+                <span>Question {Math.min(questionsAnswered + 1, totalQuestions)} of {totalQuestions}</span>
                 <span>Score: {displayScore} / {totalQuestions}</span>
               </div>
               <div className="h-1.5 md:h-2 bg-white/10 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(progressPercentage, 100)}%` }} 
+                  className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressPercentage}%` }} 
                 />
               </div>
             </div>

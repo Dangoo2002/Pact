@@ -1,4 +1,4 @@
-// app/api/student/quiz/save-and-analyze/route.js
+// app/api/student/quiz/save-and-analyze/route.js - Fixed version
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { query } from '@/lib/db';
@@ -12,7 +12,6 @@ export async function POST(request) {
 
     const { sessionId, studentId, concept, language, questions, answers, score, totalQuestions } = await request.json();
 
-    // Calculate statistics
     const percentage = Math.round((score / totalQuestions) * 100);
     
     // Calculate concept-level performance
@@ -71,7 +70,7 @@ export async function POST(request) {
     `, [studentId]);
     const studentName = studentNameResult.rows[0]?.full_name || 'Unknown';
     
-    // 1. Save to gap_analysis (existing)
+    // 1. Save to gap_analysis
     const analysisData = {
       overall_mastery: percentage,
       mastery_level: performanceTier,
@@ -90,45 +89,19 @@ export async function POST(request) {
       VALUES ($1, $2, $3, $4, NOW())
     `, [studentId, concept, sessionId, JSON.stringify(analysisData)]);
     
-    // 2. Save to instructor_analytics with CORRECT values
+    // 2. Save to instructor_analytics
     await query(`
       INSERT INTO instructor_analytics (
-        student_id, 
-        student_name, 
-        concept, 
-        mastery_score, 
-        accuracy_percentage,
-        total_questions, 
-        correct_answers, 
-        quiz_score, 
-        total_quizzes, 
-        completed_quizzes,
-        current_streak, 
-        longest_streak, 
-        performance_tier,
-        strengths, 
-        weaknesses, 
-        recommendations,
-        analysis_date, 
-        session_id,
-        created_at,
-        updated_at
+        student_id, student_name, concept, mastery_score, accuracy_percentage,
+        total_questions, correct_answers, quiz_score, total_quizzes, completed_quizzes,
+        current_streak, longest_streak, performance_tier, strengths, weaknesses, 
+        recommendations, analysis_date, session_id, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 1, 0, 0, $9, $10, $11, $12, NOW(), $13, NOW(), NOW())
     `, [
-      studentId, 
-      studentName, 
-      concept, 
-      percentage,  // mastery_score
-      percentage,  // accuracy_percentage
-      totalQuestions,  // total_questions
-      score,  // correct_answers
-      score,  // quiz_score
-      performanceTier,
-      JSON.stringify(strengths),
-      JSON.stringify(weaknesses),
-      JSON.stringify(recommendations),
-      sessionId
+      studentId, studentName, concept, percentage, percentage,
+      totalQuestions, score, score, performanceTier,
+      JSON.stringify(strengths), JSON.stringify(weaknesses), JSON.stringify(recommendations), sessionId
     ]);
     
     // 3. Update student_performance
@@ -147,7 +120,6 @@ export async function POST(request) {
       `, [studentId, totalQuestions, score, percentage, performanceTier]);
     } else {
       const current = existingPerf.rows[0];
-      const newTotalQuizzes = current.total_quizzes + 1;
       const newTotalQuestions = current.total_questions_answered + totalQuestions;
       const newCorrectAnswers = current.total_correct_answers + score;
       const newAvgScore = Math.round((newCorrectAnswers / newTotalQuestions) * 100);
