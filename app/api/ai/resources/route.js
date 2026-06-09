@@ -1,7 +1,8 @@
 // app/api/ai/resources/route.js
+export const dynamic = 'force-dynamic'; // Add this at the top to prevent static generation
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { query } from '@/lib/db';
 
 // Function to validate URLs are accessible
 async function validateUrl(url) {
@@ -58,17 +59,25 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Concept required' }, { status: 400 });
     }
 
-    // Get student's specific errors for this concept
-    const errors = await query(`
-      SELECT question_text, selected_answer, code_submission, ai_feedback
-      FROM responses r
-      JOIN quiz_sessions qs ON r.session_id = qs.session_id
-      WHERE r.student_id = $1 AND qs.concept = $2 AND r.is_correct = false
-      ORDER BY r.timestamp DESC
-      LIMIT 10
-    `, [studentId, concept]);
+    // Import query dynamically to avoid issues during build
+    const { query } = await import('@/lib/db');
 
-    const language = 'python'; // Default or detect from context
+    // Get student's specific errors for this concept
+    let errors = { rows: [] };
+    try {
+      errors = await query(`
+        SELECT question_text, selected_answer, code_submission, ai_feedback
+        FROM responses r
+        JOIN quiz_sessions qs ON r.session_id = qs.session_id
+        WHERE r.student_id = $1 AND qs.concept = $2 AND r.is_correct = false
+        ORDER BY r.timestamp DESC
+        LIMIT 10
+      `, [studentId, concept]);
+    } catch (dbError) {
+      console.error('Database error fetching errors:', dbError);
+    }
+
+    const language = 'python';
     const verifiedBaseUrl = VERIFIED_RESOURCES[language]?.[concept] || VERIFIED_RESOURCES[language]?.default || VERIFIED_RESOURCES.default;
 
     // Generate AI-powered resources with verified URLs
@@ -91,46 +100,50 @@ Return JSON:
   ]
 }`;
 
-    const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'mistral-small-latest',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a learning resource curator. Generate specific, actionable resources. Use only the URL patterns provided. Return ONLY valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.4,
-        max_tokens: 2000
-      })
-    });
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices[0]?.message?.content || '{}';
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    
     let result = {
       summary: `Resources to help you master ${concept.replace(/_/g, ' ')}`,
       resources: []
     };
-    
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[0]);
-        result.summary = parsed.summary || result.summary;
-        result.resources = parsed.resources || [];
-      } catch (e) {
-        console.error('Failed to parse AI response:', e);
+
+    try {
+      const aiResponse = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'mistral-small-latest',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a learning resource curator. Generate specific, actionable resources. Use only the URL patterns provided. Return ONLY valid JSON.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.4,
+          max_tokens: 2000
+        })
+      });
+
+      const aiData = await aiResponse.json();
+      const content = aiData.choices?.[0]?.message?.content || '{}';
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          result.summary = parsed.summary || result.summary;
+          result.resources = parsed.resources || [];
+        } catch (e) {
+          console.error('Failed to parse AI response:', e);
+        }
       }
+    } catch (aiError) {
+      console.error('AI generation failed:', aiError);
     }
     
     // Ensure we have valid resources with working URLs
@@ -166,7 +179,6 @@ Return JSON:
     // Validate URLs and mark any that might be problematic
     for (const resource of result.resources) {
       if (resource.url && !resource.url.startsWith('/') && !resource.url.startsWith('https://www.w3schools.com') && !resource.url.includes('youtube.com')) {
-        // For external URLs, we'll keep them but they're not guaranteed
         resource.note = 'External resource - may require internet access';
       }
     }
@@ -175,13 +187,13 @@ Return JSON:
   } catch (error) {
     console.error('AI resources error:', error);
     return NextResponse.json({ 
-      summary: `Resources to help you master ${concept.replace(/_/g, ' ')}. Complete more quizzes for personalized recommendations.`,
+      summary: `Resources to help you master ${concept ? concept.replace(/_/g, ' ') : 'this concept'}. Complete more quizzes for personalized recommendations.`,
       resources: [
         {
-          title: `${concept.replace(/_/g, ' ')} Tutorial`,
+          title: `${concept ? concept.replace(/_/g, ' ') : 'Programming'} Tutorial`,
           type: 'tutorial',
-          url: `https://www.w3schools.com/python/python_${concept.toLowerCase()}.asp`,
-          description: `Learn ${concept.replace(/_/g, ' ')} fundamentals with examples.`,
+          url: 'https://www.w3schools.com/python/',
+          description: 'Learn programming fundamentals with examples.',
           duration_minutes: 20,
           difficulty: 'beginner'
         }
