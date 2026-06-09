@@ -2,15 +2,15 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Code, Users, Server, Activity, Database, Shield,
-  LayoutDashboard, Settings, FileText, Bell, User, Menu, X,
+  LayoutDashboard, Settings, FileText, Bell, User, Menu,
   LogOut, TrendingUp, AlertCircle, CheckCircle, RefreshCw,
   Loader2, ChevronRight, BarChart3, Clock, Zap, Cpu, 
-  HardDrive, Wifi, Lock, Eye, EyeOff, Terminal
+  HardDrive, Wifi, Lock, Eye, EyeOff, Terminal, BookOpen, GraduationCap
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -56,6 +56,7 @@ const StarBackground = () => {
 };
 
 // Sidebar
+// app/admin/page.jsx - Updated Sidebar
 const Sidebar = ({ isOpen, onClose }) => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -63,8 +64,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/'); };
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/system', label: 'System Health', icon: Server },
-    { href: '/admin/security', label: 'Security', icon: Shield },
+    { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
   return (
@@ -112,82 +112,68 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 // Stat Card
-const StatCard = ({ title, value, icon: Icon, status, color = 'blue' }) => {
-  const statusColors = {
-    healthy: 'text-green-400',
-    warning: 'text-yellow-400',
-    critical: 'text-red-400'
-  };
-  return (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition-all duration-300">
-      <div className="flex items-center justify-between mb-2">
-        <div className={`p-2 rounded-lg bg-${color}-500/20`}>
-          <Icon size={18} className={`text-${color}-400`} />
-        </div>
-        {status && <span className={`text-xs ${statusColors[status]}`}>● {status}</span>}
+const StatCard = ({ title, value, icon: Icon, color = 'blue' }) => (
+  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:border-blue-500/30 transition-all duration-300">
+    <div className="flex items-center justify-between mb-2">
+      <div className={`p-2 rounded-lg bg-${color}-500/20`}>
+        <Icon size={18} className={`text-${color}-400`} />
       </div>
-      <p className="text-2xl md:text-3xl font-bold text-white">{value}</p>
-      <p className="text-xs text-gray-400 mt-1">{title}</p>
     </div>
-  );
-};
-
-// System Health Card
-const SystemHealthCard = ({ title, metrics, color = 'blue' }) => (
-  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-    <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-      <Activity size={14} className={`text-${color}-400`} />
-      {title}
-    </h3>
-    <div className="space-y-3">
-      {metrics.map((metric, idx) => (
-        <div key={idx}>
-          <div className="flex justify-between text-xs mb-1">
-            <span className="text-gray-400">{metric.label}</span>
-            <span className="text-white font-medium">{metric.value}</span>
-          </div>
-          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div className={`h-full bg-${color}-500 rounded-full`} style={{ width: `${metric.percentage}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
+    <p className="text-2xl md:text-3xl font-bold text-white">{value}</p>
+    <p className="text-xs text-gray-400 mt-1">{title}</p>
   </div>
 );
 
 // Activity Item
-const ActivityItem = ({ activity }) => (
-  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition">
-    <div className={`p-2 rounded-lg bg-${activity.color}-500/20`}>
-      {activity.icon === 'user' && <Users size={14} className={`text-${activity.color}-400`} />}
-      {activity.icon === 'shield' && <Shield size={14} className={`text-${activity.color}-400`} />}
-      {activity.icon === 'settings' && <Settings size={14} className={`text-${activity.color}-400`} />}
-      {activity.icon === 'database' && <Database size={14} className={`text-${activity.color}-400`} />}
+const ActivityItem = ({ activity }) => {
+  const getIcon = () => {
+    switch(activity.type) {
+      case 'user_registration': return <User size={14} className="text-green-400" />;
+      case 'quiz_completed': return <GraduationCap size={14} className="text-blue-400" />;
+      default: return <Activity size={14} className="text-gray-400" />;
+    }
+  };
+  
+  const getColor = () => {
+    switch(activity.type) {
+      case 'user_registration': return 'green';
+      case 'quiz_completed': return 'blue';
+      default: return 'gray';
+    }
+  };
+  
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition">
+      <div className={`p-2 rounded-lg bg-${getColor()}-500/20`}>
+        {getIcon()}
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-white">{activity.action}</p>
+        <p className="text-xs text-gray-500">{activity.details}</p>
+      </div>
+      <p className="text-xs text-gray-500">{activity.time}</p>
     </div>
-    <div className="flex-1">
-      <p className="text-sm font-medium text-white">{activity.action}</p>
-      <p className="text-xs text-gray-500">{activity.details}</p>
-    </div>
-    <p className="text-xs text-gray-500">{activity.time}</p>
-  </div>
-);
+  );
+};
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [systemStats, setSystemStats] = useState({
-    cpuUsage: 23,
-    memoryUsage: 45,
-    diskUsage: 38,
-    activeConnections: 156,
-    apiCallsToday: 1234,
-    errorRate: 0.3,
-    uptime: '99.98%'
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalStudents: 0,
+    totalInstructors: 0,
+    totalAdmins: 0,
+    totalQuizzes: 0,
+    totalResponses: 0,
+    totalQuestions: 0,
+    totalResources: 0
   });
+  const [userDistribution, setUserDistribution] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
-  const [securityEvents, setSecurityEvents] = useState([]);
+  const [dailyActivity, setDailyActivity] = useState([]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -200,33 +186,25 @@ export default function AdminDashboard() {
         router.replace('/student');
         return;
       }
-      fetchSystemData();
+      fetchDashboardData();
     }
   }, [session, status, router]);
 
-  const fetchSystemData = async () => {
+  const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/system-stats');
+      const response = await fetch('/api/admin/dashboard-stats');
       const data = await response.json();
-      setSystemStats(data.systemStats || systemStats);
+      setStats(data.stats || stats);
+      setUserDistribution(data.userDistribution || []);
       setRecentActivities(data.recentActivities || []);
-      setSecurityEvents(data.securityEvents || []);
+      setDailyActivity(data.dailyActivity || []);
     } catch (error) {
-      console.error('Failed to fetch system data:', error);
+      console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const apiUsageData = [
-    { hour: '00:00', calls: 45 },
-    { hour: '04:00', calls: 32 },
-    { hour: '08:00', calls: 89 },
-    { hour: '12:00', calls: 156 },
-    { hour: '16:00', calls: 203 },
-    { hour: '20:00', calls: 178 },
-  ];
 
   if (status === 'loading' || loading) {
     return (
@@ -250,11 +228,11 @@ export default function AdminDashboard() {
             </button>
             <div className="flex-1 ml-2 md:ml-0">
               <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
-                System Dashboard
+                Admin Dashboard
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={fetchSystemData} disabled={loading} className="p-2 rounded-lg hover:bg-white/10 transition">
+              <button onClick={fetchDashboardData} disabled={loading} className="p-2 rounded-lg hover:bg-white/10 transition">
                 <RefreshCw size={18} className={`text-gray-400 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <button className="p-2 rounded-lg hover:bg-white/10 transition relative">
@@ -267,123 +245,96 @@ export default function AdminDashboard() {
         {/* Content Area - Starts from top */}
         <div className="pt-16 px-3 sm:px-4 md:px-6 pb-6">
           
-          {/* System Health Stats */}
+          {/* Stats Cards - Real data */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <StatCard title="CPU Usage" value={`${systemStats.cpuUsage}%`} icon={Cpu} status={systemStats.cpuUsage > 80 ? 'critical' : systemStats.cpuUsage > 60 ? 'warning' : 'healthy'} color="blue" />
-            <StatCard title="Memory Usage" value={`${systemStats.memoryUsage}%`} icon={Database} status={systemStats.memoryUsage > 80 ? 'critical' : systemStats.memoryUsage > 60 ? 'warning' : 'healthy'} color="green" />
-            <StatCard title="Disk Usage" value={`${systemStats.diskUsage}%`} icon={HardDrive} status={systemStats.diskUsage > 80 ? 'critical' : systemStats.diskUsage > 60 ? 'warning' : 'healthy'} color="orange" />
-            <StatCard title="System Uptime" value={systemStats.uptime} icon={Activity} color="purple" />
+            <StatCard title="Total Users" value={stats.totalUsers || 0} icon={Users} color="blue" />
+            <StatCard title="Total Quizzes" value={stats.totalQuizzes || 0} icon={Activity} color="green" />
+            <StatCard title="Total Responses" value={stats.totalResponses || 0} icon={Database} color="purple" />
+            <StatCard title="Total Questions" value={stats.totalQuestions || 0} icon={FileText} color="orange" />
           </div>
 
           {/* Charts Row */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* User Distribution Pie Chart */}
             <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
               <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <BarChart3 size={16} className="text-blue-400" /> API Usage (Last 24 Hours)
+                <PieChart size={16} className="text-blue-400" /> User Distribution
               </h2>
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={apiUsageData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="hour" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} />
-                  <Area type="monotone" dataKey="calls" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} />
-                </AreaChart>
-              </ResponsiveContainer>
-              <div className="flex justify-between mt-2 text-xs text-gray-500">
-                <span>Total API Calls Today: {systemStats.apiCallsToday}</span>
-                <span>Error Rate: {systemStats.errorRate}%</span>
-              </div>
+              {userDistribution.length > 0 && userDistribution.some(d => d.value > 0) ? (
+                <>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={userDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {userDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-3 mt-4">
+                    {userDistribution.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-xs text-gray-400">{item.name}: {item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center">
+                  <p className="text-gray-500">No user data available</p>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <SystemHealthCard 
-                title="System Resources" 
-                color="blue"
-                metrics={[
-                  { label: 'CPU Usage', value: `${systemStats.cpuUsage}%`, percentage: systemStats.cpuUsage },
-                  { label: 'Memory Usage', value: `${systemStats.memoryUsage}%`, percentage: systemStats.memoryUsage },
-                  { label: 'Disk Usage', value: `${systemStats.diskUsage}%`, percentage: systemStats.diskUsage }
-                ]}
-              />
-              <SystemHealthCard 
-                title="Network & Connections" 
-                color="green"
-                metrics={[
-                  { label: 'Active Connections', value: systemStats.activeConnections, percentage: Math.min(100, (systemStats.activeConnections / 500) * 100) },
-                  { label: 'Active Sessions', value: Math.floor(systemStats.activeConnections * 0.6), percentage: 60 },
-                  { label: 'Database Pool', value: Math.floor(systemStats.activeConnections * 0.3), percentage: 30 }
-                ]}
-              />
+            {/* Daily Activity Chart */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+              <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                <BarChart3 size={16} className="text-blue-400" /> Daily Activity (Last 7 Days)
+              </h2>
+              {dailyActivity.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={dailyActivity}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }} />
+                    <Bar dataKey="count" fill="#3b82f6" name="Activities" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center">
+                  <p className="text-gray-500">No activity data available</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Recent Activity & Security Events */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <Clock size={16} className="text-blue-400" /> Recent System Activity
-              </h2>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity, idx) => (
-                    <ActivityItem key={idx} activity={activity} />
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-6">No recent activity</p>
-                )}
-              </div>
+          {/* Recent Activity */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+            <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+              <Clock size={16} className="text-blue-400" /> Recent Activity
+            </h2>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {recentActivities.length > 0 ? (
+                recentActivities.map((activity, idx) => (
+                  <ActivityItem key={idx} activity={activity} />
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-6">No recent activity</p>
+              )}
             </div>
-
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-              <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                <Shield size={16} className="text-red-400" /> Security Events
-              </h2>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {securityEvents.length > 0 ? (
-                  securityEvents.map((event, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/5 transition border border-red-500/20">
-                      <div className="p-2 rounded-lg bg-red-500/20">
-                        <AlertCircle size={14} className="text-red-400" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white">{event.event}</p>
-                        <p className="text-xs text-gray-500">{event.details}</p>
-                      </div>
-                      <p className="text-xs text-gray-500">{event.time}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-center py-6">No security events detected</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Link href="/admin/security">
-              <button className="w-full py-2.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition text-sm flex items-center justify-center gap-2">
-                <Shield size={14} />
-                Security Audit
-              </button>
-            </Link>
-            <Link href="/admin/system">
-              <button className="w-full py-2.5 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition text-sm flex items-center justify-center gap-2">
-                <Server size={14} />
-                System Health
-              </button>
-            </Link>
-            <Link href="/admin/settings">
-              <button className="w-full py-2.5 rounded-lg bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/30 transition text-sm flex items-center justify-center gap-2">
-                <Settings size={14} />
-                System Settings
-              </button>
-            </Link>
-            <button onClick={fetchSystemData} className="w-full py-2.5 rounded-lg bg-gray-500/20 border border-gray-500/30 text-gray-400 hover:bg-gray-500/30 transition text-sm flex items-center justify-center gap-2">
-              <RefreshCw size={14} />
-              Refresh Data
-            </button>
           </div>
         </div>
       </div>

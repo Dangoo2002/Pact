@@ -1,4 +1,4 @@
-// app/(dashboard)/admin/settings/page.js
+// app/admin/settings/page.jsx
 'use client';
 
 import { useSession } from 'next-auth/react';
@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Code, Shield, Bell, Database, Globe, Save, 
-  Menu, X, LogOut, User, Loader2, CheckCircle,
-  AlertCircle, RefreshCw, LayoutDashboard, Users, BookOpen,
-  Settings, Moon, Sun, Smartphone, Laptop, Key, Mail, Lock
+  Menu, LogOut, User, Loader2, CheckCircle,
+  AlertCircle, RefreshCw, LayoutDashboard, Users,
+  Settings, Key, Mail, Lock
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -66,37 +66,46 @@ const Sidebar = ({ isOpen, onClose }) => {
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/admin/resources', label: 'Resources', icon: BookOpen },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
   ];
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onClose} />}
-      <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628]/95 backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <div className="p-4 border-b border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="bg-green-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-green-400" /></div>
-            <span className="text-xl font-bold text-white">PACT</span>
+      {isOpen && <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={onClose} />}
+      <div className={`fixed top-0 left-0 h-full w-64 bg-[#0A1628] backdrop-blur-xl border-r border-white/10 z-50 transform transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="bg-blue-500/20 p-2 rounded-xl"><Code className="h-5 w-5 text-blue-400" /></div>
+              <span className="text-xl font-bold text-white">PACT</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Admin Portal</p>
           </div>
-          <p className="text-xs text-gray-500 mt-2">Admin Portal</p>
-        </div>
-        <nav className="p-3 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
-                <Icon size={18} /><span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center"><User className="h-4 w-4 text-green-400" /></div>
-            <div className="flex-1"><p className="text-sm font-medium text-white">{session?.user?.name || 'Admin'}</p><p className="text-xs text-gray-500 capitalize">{role}</p></div>
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href} onClick={onClose} className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition">
+                  <Icon size={18} />
+                  <span className="text-sm">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="p-4 border-t border-white/10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <User className="h-4 w-4 text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{session?.user?.name || 'Admin'}</p>
+                <p className="text-xs text-gray-500 capitalize truncate">{role}</p>
+              </div>
+            </div>
+            <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm">
+              <LogOut size={16} /> Sign Out
+            </button>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition text-sm"><LogOut size={16} /> Sign Out</button>
         </div>
       </div>
     </>
@@ -115,7 +124,7 @@ const ToggleSwitch = ({ enabled, onChange, label, description }) => {
         type="button"
         onClick={onChange}
         className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
-          enabled ? 'bg-green-500' : 'bg-gray-600'
+          enabled ? 'bg-blue-500' : 'bg-gray-600'
         }`}
       >
         <div
@@ -129,10 +138,10 @@ const ToggleSwitch = ({ enabled, onChange, label, description }) => {
 };
 
 // Settings Card Component
-const SettingsCard = ({ title, icon: Icon, children, color = 'green' }) => {
+const SettingsCard = ({ title, icon: Icon, children, color = 'blue' }) => {
   const colorClasses = {
-    green: 'border-green-500/30',
     blue: 'border-blue-500/30',
+    green: 'border-green-500/30',
     purple: 'border-purple-500/30',
     orange: 'border-orange-500/30'
   };
@@ -165,13 +174,15 @@ const Toast = ({ message, type, onClose }) => {
     info: <AlertCircle className="h-5 w-5 text-blue-400" />
   };
 
+  const bgColors = {
+    success: 'bg-green-500/20 border-green-500/30',
+    error: 'bg-red-500/20 border-red-500/30',
+    info: 'bg-blue-500/20 border-blue-500/30'
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-5 duration-300">
-      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-md border ${
-        type === 'success' ? 'bg-green-500/20 border-green-500/30' :
-        type === 'error' ? 'bg-red-500/20 border-red-500/30' :
-        'bg-blue-500/20 border-blue-500/30'
-      }`}>
+      <div className={`flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-md border ${bgColors[type]}`}>
         {icons[type]}
         <p className="text-sm text-white">{message}</p>
       </div>
@@ -200,21 +211,27 @@ export default function AdminSettingsPage() {
     emailNotifications: true,
     systemAlerts: true,
     weeklyReports: true,
-    theme: 'dark',
-    animationsEnabled: true,
     deepseekApiKey: '',
     deepseekApiEndpoint: 'https://api.deepseek.com/v1',
   });
 
   useEffect(() => {
+    if (status === 'loading') return;
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
-    fetchSettings();
+    if (status === 'authenticated') {
+      if (session?.user?.role !== 'admin') {
+        router.replace('/student');
+        return;
+      }
+      fetchSettings();
+    }
   }, [session, status, router]);
 
   const fetchSettings = async () => {
+    setLoading(true);
     try {
       const response = await fetch('/api/admin/settings');
       const data = await response.json();
@@ -250,7 +267,6 @@ export default function AdminSettingsPage() {
       
       if (response.ok) {
         showToast('Settings saved successfully!', 'success');
-        // Refresh settings to confirm they were saved
         await fetchSettings();
       } else {
         showToast(data.error || 'Failed to save settings', 'error');
@@ -266,7 +282,7 @@ export default function AdminSettingsPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-green-400" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
       </div>
     );
   }
@@ -279,41 +295,40 @@ export default function AdminSettingsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
       <div className="md:ml-64">
-        <div className="sticky top-0 z-30 bg-[#0A1628]/80 backdrop-blur-xl border-b border-white/10">
+        {/* Fixed Header - No welcome title */}
+        <div className="fixed top-0 right-0 left-0 md:left-64 z-40 bg-[#0A1628]/95 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center justify-between px-4 py-3 md:px-6">
-            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
-              <Menu size={20} />
+            <button onClick={() => setSidebarOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10 transition">
+              <Menu size={20} className="text-white" />
             </button>
-            <div className="flex items-center gap-3">
-              <button className="p-2 rounded-lg hover:bg-white/10 relative">
-                <Bell size={18} />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
+            <div className="flex-1 ml-2 md:ml-0">
+              <h1 className="text-base sm:text-lg md:text-xl font-bold text-white">
+                Settings
+              </h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchSettings} disabled={loading} className="p-2 rounded-lg hover:bg-white/10 transition">
+                <RefreshCw size={18} className={`text-gray-400 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-green-400" />
-                </div>
-                <span className="text-sm text-white hidden sm:inline">{session?.user?.name?.split(' ')[0] || 'Admin'}</span>
-              </div>
+              <button className="p-2 rounded-lg hover:bg-white/10 transition relative">
+                <Bell size={18} className="text-gray-400" />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="p-4 md:p-6">
-          <div className="mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">System Settings</h1>
-            <p className="text-sm text-gray-400 mt-1">Configure system-wide settings and preferences</p>
-          </div>
-
+        {/* Content Area - Starts from top */}
+        <div className="pt-16 px-3 sm:px-4 md:px-6 pb-6">
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <SettingsCard title="General Settings" icon={Globe} color="green">
+            <SettingsCard title="General Settings" icon={Globe} color="blue">
               <div>
                 <label className="text-sm text-gray-400 mb-1 block">Site Name</label>
                 <input
                   type="text"
                   value={settings.siteName}
                   onChange={(e) => handleChange('siteName', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
               <div>
@@ -322,7 +337,7 @@ export default function AdminSettingsPage() {
                   value={settings.siteDescription}
                   onChange={(e) => handleChange('siteDescription', e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50 resize-none"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none"
                 />
               </div>
               <div>
@@ -331,7 +346,7 @@ export default function AdminSettingsPage() {
                   type="email"
                   value={settings.adminEmail}
                   onChange={(e) => handleChange('adminEmail', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
               <div>
@@ -339,7 +354,7 @@ export default function AdminSettingsPage() {
                 <select
                   value={settings.defaultLanguage}
                   onChange={(e) => handleChange('defaultLanguage', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 >
                   <option value="python">Python</option>
                   <option value="java">Java</option>
@@ -352,7 +367,7 @@ export default function AdminSettingsPage() {
               </div>
             </SettingsCard>
 
-            <SettingsCard title="Security Settings" icon={Shield} color="blue">
+            <SettingsCard title="Security Settings" icon={Shield} color="green">
               <ToggleSwitch
                 enabled={settings.enableRegistration}
                 onChange={() => handleChange('enableRegistration', !settings.enableRegistration)}
@@ -377,7 +392,7 @@ export default function AdminSettingsPage() {
                   type="number"
                   value={settings.apiRateLimit}
                   onChange={(e) => handleChange('apiRateLimit', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
               <div>
@@ -386,7 +401,7 @@ export default function AdminSettingsPage() {
                   type="number"
                   value={settings.sessionTimeout}
                   onChange={(e) => handleChange('sessionTimeout', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
               <div>
@@ -395,7 +410,7 @@ export default function AdminSettingsPage() {
                   type="number"
                   value={settings.maxLoginAttempts}
                   onChange={(e) => handleChange('maxLoginAttempts', parseInt(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
             </SettingsCard>
@@ -429,7 +444,7 @@ export default function AdminSettingsPage() {
                   value={settings.deepseekApiKey}
                   onChange={(e) => handleChange('deepseekApiKey', e.target.value)}
                   placeholder="sk-..."
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
               <div>
@@ -438,17 +453,17 @@ export default function AdminSettingsPage() {
                   type="url"
                   value={settings.deepseekApiEndpoint}
                   onChange={(e) => handleChange('deepseekApiEndpoint', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-green-500/50"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                 />
               </div>
             </SettingsCard>
           </div>
 
-          <div className="flex justify-end sticky bottom-4 z-20">
+          <div className="flex justify-end">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/30 transition flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/30 transition flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               {saving ? 'Saving...' : 'Save All Settings'}
